@@ -1,0 +1,110 @@
+@ ============================================================
+@ DREAM GAME v0.9.1
+@ ============================================================
+
+scrn game
+
+    @ --------------------------------------------------------
+    @ PLAYER POSITION
+    @ --------------------------------------------------------
+
+    s x = 20
+    s y = 20
+
+    s dx = 1
+    s dy = 0
+
+    @ --------------------------------------------------------
+    @ FOOD POSITION
+    @ --------------------------------------------------------
+
+    rdm [1,55]
+    s foodx = #random
+
+    rdm [1,40]
+    s foody = #random
+
+    @ Draw player
+    pxl[x,y]
+
+    @ Draw food
+    pxl[foodx,foody]
+
+    @ --------------------------------------------------------
+    @ CONTROLS
+    @ --------------------------------------------------------
+
+    w u-a clk
+
+        dy = -1
+        dx = 0
+
+    end
+
+    w d-a clk
+
+        dy = 1
+        dx = 0
+
+    end
+
+    w l-a clk
+
+        dx = -1
+        dy = 0
+
+    end
+
+    w r-a clk
+
+        dx = 1
+        dy = 0
+
+    end
+
+    @ --------------------------------------------------------
+    @ GAME LOOP
+    @ --------------------------------------------------------
+
+    rpt[frvr]
+
+        @ Remove old player position
+        clrr[x,y]
+
+        @ Move player
+        x = x + dx
+        y = y + dy
+
+        @ Draw player
+        pxl[x,y]
+
+        @ ----------------------------------------------------
+        @ FOOD COLLISION
+        @ ----------------------------------------------------
+
+        if x == foodx
+
+            if y == foody
+
+                @ Remove eaten food
+                clrr[foodx,foody]
+
+                @ Generate new random X
+                rdm [1,55]
+                foodx = #random
+
+                @ Generate new random Y
+                rdm [1,40]
+                foody = #random
+
+                @ Draw new food
+                pxl[foodx,foody]
+
+            end
+
+        end
+
+    end
+
+end
+
