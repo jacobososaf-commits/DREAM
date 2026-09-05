@@ -1,0 +1,7 @@
+@ Basic DREAM example
+
+s name = OpenQ
+
+r [Hello from DREAM!]
+r [Welcome to {name}]
+r [This is DREAM v0.9]

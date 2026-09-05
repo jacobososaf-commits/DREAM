@@ -1,0 +1,22 @@
+@ Pixel drawing example
+
+s x = 10
+s y = 10
+
+scrn pixel_demo
+
+    pxl[x,y]
+    pxl[x+1,y]
+    pxl[x+2,y]
+
+    pxl[x,y+1]
+    pxl[x+1,y+1]
+    pxl[x+2,y+1]
+
+    pxl[x,y+2]
+    pxl[x+1,y+2]
+    pxl[x+2,y+2]
+
+    r [DREAM PIXEL DEMO]
+
+end

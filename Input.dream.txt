@@ -1,0 +1,15 @@
+@ Interactive DREAM example
+
+r [What is your name?]
+r #usrinp
+
+s age = 15
+
+r [Hello, {usrinp}!]
+r [You are {age} years old.]
+
+if age >= 13
+    r [You are old enough to use DREAM!]
+else
+    r [Welcome, young programmer!]
+end
