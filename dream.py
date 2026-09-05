@@ -8,8 +8,23 @@ import time
 
 
 # ============================================================
-# DREAM v0.9
-# Stable / corrected build
+# DREAM v0.9.1
+# STABILITY / BUG-FIX BUILD
+#
+# FIX:
+# Nested blocks now preserve their active screen context.
+#
+# This allows:
+#
+# scrn game
+#     rpt[frvr]
+#         if x == 5
+#             pxl[x,y]
+#             clrr[x,y]
+#         end
+#     end
+# end
+#
 # ============================================================
 
 
@@ -39,17 +54,23 @@ class DreamInterpreter:
 
         self.variables = {}
 
+        # ----------------------------------------------------
         # Screen data
+        # ----------------------------------------------------
+
         self.screens = {}
         self.current_screen = None
 
-        # Interpreter state
+        # ----------------------------------------------------
+        # Runtime state
+        # ----------------------------------------------------
+
         self.running = False
 
-        # Keyboard bindings
+        self.run_id = 0
+
         self.key_bindings = {}
 
-        # Small delay for rpt[frvr]
         self.loop_delay = 0.03
 
     # ========================================================
@@ -57,9 +78,14 @@ class DreamInterpreter:
     # ========================================================
 
     def output(self, text):
-        self.output_callback(str(text))
+
+        try:
+            self.output_callback(str(text))
+        except Exception:
+            pass
 
     def error(self, code, message, line=None):
+
         if line is not None:
             self.output(
                 f"DREAM ERROR {code} | Line {line} {message}"
@@ -71,7 +97,6 @@ class DreamInterpreter:
 
     # ========================================================
     # SAFE MATH
-    # Python 3.14 compatible
     # ========================================================
 
     def safe_math(self, expression):
@@ -93,7 +118,6 @@ class DreamInterpreter:
             if isinstance(node, ast.Expression):
                 return evaluate(node.body)
 
-            # Python 3.14-safe number handling
             if isinstance(node, ast.Constant):
 
                 if isinstance(node.value, bool):
@@ -103,7 +127,7 @@ class DreamInterpreter:
                     return node.value
 
                 raise ValueError(
-                    "Only numbers are allowed in math"
+                    "Only numbers are allowed in math."
                 )
 
             if isinstance(node, ast.BinOp):
@@ -115,13 +139,24 @@ class DreamInterpreter:
 
                 if op_type not in operators:
                     raise ValueError(
-                        "Operator not allowed"
+                        "Operator not allowed."
                     )
 
-                return operators[op_type](
-                    left,
-                    right
-                )
+                try:
+                    return operators[op_type](
+                        left,
+                        right
+                    )
+
+                except ZeroDivisionError:
+                    raise ValueError(
+                        "Division by zero."
+                    )
+
+                except OverflowError:
+                    raise ValueError(
+                        "Math result is too large."
+                    )
 
             if isinstance(node, ast.UnaryOp):
 
@@ -130,21 +165,34 @@ class DreamInterpreter:
 
                 if op_type not in operators:
                     raise ValueError(
-                        "Operator not allowed"
+                        "Operator not allowed."
                     )
 
-                return operators[op_type](
-                    operand
-                )
+                try:
+                    return operators[op_type](
+                        operand
+                    )
+
+                except Exception:
+                    raise ValueError(
+                        "Invalid mathematical operation."
+                    )
 
             raise ValueError(
-                "Invalid expression"
+                "Invalid mathematical expression."
             )
 
-        tree = ast.parse(
-            expression,
-            mode="eval"
-        )
+        try:
+
+            tree = ast.parse(
+                expression,
+                mode="eval"
+            )
+
+        except SyntaxError:
+            raise ValueError(
+                "Invalid mathematical expression."
+            )
 
         return evaluate(tree)
 
@@ -171,14 +219,14 @@ class DreamInterpreter:
 
             if name not in self.variables:
                 raise ValueError(
-                    f"Unknown variable '{name}'"
+                    f"Unknown variable '{name}'."
                 )
 
             value = self.variables[name]
 
             if not isinstance(value, (int, float)):
                 raise ValueError(
-                    f"Variable '{name}' is not a number"
+                    f"Variable '{name}' is not a number."
                 )
 
             return str(value)
@@ -191,9 +239,6 @@ class DreamInterpreter:
 
     # ========================================================
     # REPLACE BARE VARIABLES IN MATH
-    #
-    # Example:
-    # hp - 10
     # ========================================================
 
     def replace_bare_math_variables(self, expression):
@@ -208,7 +253,7 @@ class DreamInterpreter:
 
                 if not isinstance(value, (int, float)):
                     raise ValueError(
-                        f"Variable '{name}' is not a number"
+                        f"Variable '{name}' is not a number."
                     )
 
                 return str(value)
@@ -229,10 +274,6 @@ class DreamInterpreter:
 
         value = value.strip()
 
-        # --------------------------------
-        # Quoted string
-        # --------------------------------
-
         if (
             len(value) >= 2
             and value[0] == '"'
@@ -247,24 +288,21 @@ class DreamInterpreter:
         ):
             return value[1:-1]
 
-        # --------------------------------
-        # #variable
-        # --------------------------------
-
         if value.startswith("#"):
 
             name = value[1:].strip()
 
+            if not self.valid_variable_name(name):
+                raise ValueError(
+                    f"Invalid variable name '{name}'."
+                )
+
             if name not in self.variables:
                 raise ValueError(
-                    f"Unknown variable '{name}'"
+                    f"Unknown variable '{name}'."
                 )
 
             return self.variables[name]
-
-        # --------------------------------
-        # Array index
-        # --------------------------------
 
         array_match = re.fullmatch(
             r"([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(\d+)\s*\]",
@@ -278,26 +316,22 @@ class DreamInterpreter:
 
             if name not in self.variables:
                 raise ValueError(
-                    f"Unknown variable '{name}'"
+                    f"Unknown variable '{name}'."
                 )
 
             array = self.variables[name]
 
             if not isinstance(array, list):
                 raise ValueError(
-                    f"Variable '{name}' is not an array"
+                    f"Variable '{name}' is not an array."
                 )
 
-            if index < 0 or index >= len(array):
+            if index >= len(array):
                 raise ValueError(
-                    f"Array index {index} out of range"
+                    f"Array index {index} out of range."
                 )
 
             return array[index]
-
-        # --------------------------------
-        # Integer
-        # --------------------------------
 
         if re.fullmatch(
             r"-?\d+",
@@ -305,35 +339,21 @@ class DreamInterpreter:
         ):
             return int(value)
 
-        # --------------------------------
-        # Float
-        # --------------------------------
-
         if re.fullmatch(
             r"-?\d+\.\d+",
             value
         ):
             return float(value)
 
-        # --------------------------------
-        # Existing variable
-        # --------------------------------
-
         if self.valid_variable_name(value):
 
             if value in self.variables:
                 return self.variables[value]
 
-        # --------------------------------
-        # Raw text
-        # --------------------------------
-
         return value
 
     # ========================================================
     # FORMAT TEXT
-    #
-    # {variable}
     # ========================================================
 
     def format_text(self, text):
@@ -361,9 +381,12 @@ class DreamInterpreter:
 
     def screen_exists(self, name):
 
-        return (
-            name in self.screens
-            and not self.screens[name].get("closed", True)
+        if name not in self.screens:
+            return False
+
+        return not self.screens[name].get(
+            "closed",
+            True
         )
 
     def screen_alive(self, screen):
@@ -394,6 +417,48 @@ class DreamInterpreter:
             return False
 
     # ========================================================
+    # REMOVE SCREEN BINDINGS
+    # ========================================================
+
+    def remove_screen_bindings(self, name):
+
+        screen = self.screens.get(name)
+
+        if screen is None:
+            return
+
+        canvas = screen.get("canvas")
+
+        if canvas is None:
+            return
+
+        bindings_to_remove = [
+            key
+            for key in self.key_bindings
+            if key[0] == name
+        ]
+
+        for binding_key in bindings_to_remove:
+
+            sequence = binding_key[1]
+
+            binding_id = self.key_bindings.pop(
+                binding_key,
+                None
+            )
+
+            try:
+
+                if binding_id:
+                    canvas.unbind(
+                        sequence,
+                        binding_id
+                    )
+
+            except tk.TclError:
+                pass
+
+    # ========================================================
     # CLOSE SCREEN
     # ========================================================
 
@@ -409,6 +474,8 @@ class DreamInterpreter:
 
         screen["closed"] = True
 
+        self.remove_screen_bindings(name)
+
         window = screen.get("window")
 
         try:
@@ -419,7 +486,6 @@ class DreamInterpreter:
         except tk.TclError:
             pass
 
-        # If this was the active screen, remove the context
         if self.current_screen == name:
             self.current_screen = None
 
@@ -429,8 +495,6 @@ class DreamInterpreter:
 
     def create_screen(self, name):
 
-        # If an old screen exists but was closed,
-        # remove its record so we can recreate it.
         if name in self.screens:
 
             old_screen = self.screens[name]
@@ -438,34 +502,49 @@ class DreamInterpreter:
             if self.screen_alive(old_screen):
                 return old_screen
 
-            self.screens.pop(name, None)
+            self.close_screen(name)
 
-        window = tk.Toplevel(self.root)
+            self.screens.pop(
+                name,
+                None
+            )
 
-        window.title(
-            f"DREAM - {name}"
-        )
+        try:
 
-        window.geometry(
-            "700x500"
-        )
+            window = tk.Toplevel(
+                self.root
+            )
 
-        window.configure(
-            bg="black"
-        )
+            window.title(
+                f"DREAM - {name}"
+            )
 
-        canvas = tk.Canvas(
-            window,
-            width=700,
-            height=500,
-            bg="black",
-            highlightthickness=0
-        )
+            window.geometry(
+                "700x500"
+            )
 
-        canvas.pack(
-            fill="both",
-            expand=True
-        )
+            window.configure(
+                bg="black"
+            )
+
+            canvas = tk.Canvas(
+                window,
+                width=700,
+                height=500,
+                bg="black",
+                highlightthickness=0
+            )
+
+            canvas.pack(
+                fill="both",
+                expand=True
+            )
+
+        except tk.TclError:
+
+            raise ValueError(
+                "Could not create DREAM screen."
+            )
 
         screen = {
             "window": window,
@@ -479,14 +558,15 @@ class DreamInterpreter:
 
         self.screens[name] = screen
 
-        # IMPORTANT:
-        # Safely handle the user closing the window.
         window.protocol(
             "WM_DELETE_WINDOW",
             lambda n=name: self.close_screen(n)
         )
 
-        canvas.focus_set()
+        try:
+            canvas.focus_set()
+        except tk.TclError:
+            pass
 
         return screen
 
@@ -500,12 +580,12 @@ class DreamInterpreter:
             self.output(text)
             return
 
-        if not self.screen_exists(self.current_screen):
+        if not self.screen_exists(
+            self.current_screen
+        ):
 
             self.current_screen = None
-
             self.output(text)
-
             return
 
         screen = self.screens[
@@ -518,7 +598,6 @@ class DreamInterpreter:
             self.current_screen = None
 
             self.output(text)
-
             return
 
         canvas = screen["canvas"]
@@ -552,6 +631,11 @@ class DreamInterpreter:
         except tk.TclError:
 
             screen["closed"] = True
+
+            self.remove_screen_bindings(
+                self.current_screen
+            )
+
             self.current_screen = None
 
     # ========================================================
@@ -565,7 +649,9 @@ class DreamInterpreter:
                 "pxl can only be used inside a scrn."
             )
 
-        if not self.screen_exists(self.current_screen):
+        if not self.screen_exists(
+            self.current_screen
+        ):
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -575,6 +661,7 @@ class DreamInterpreter:
         ]
 
         if not self.screen_alive(screen):
+
             screen["closed"] = True
             self.current_screen = None
 
@@ -582,11 +669,19 @@ class DreamInterpreter:
                 "The DREAM screen is closed."
             )
 
+        try:
+
+            x = int(x)
+            y = int(y)
+
+        except (TypeError, ValueError):
+
+            raise ValueError(
+                "Pixel coordinates must be numbers."
+            )
+
         canvas = screen["canvas"]
         size = screen["pixel_size"]
-
-        x = int(x)
-        y = int(y)
 
         key = (x, y)
 
@@ -594,8 +689,6 @@ class DreamInterpreter:
             return
 
         try:
-
-            screen["pixels"].add(key)
 
             canvas.create_rectangle(
                 x * size,
@@ -607,10 +700,16 @@ class DreamInterpreter:
                 tags=f"pixel_{x}_{y}"
             )
 
+            screen["pixels"].add(key)
+
         except tk.TclError:
 
-            screen["pixels"].discard(key)
             screen["closed"] = True
+
+            self.remove_screen_bindings(
+                self.current_screen
+            )
+
             self.current_screen = None
 
             raise ValueError(
@@ -628,7 +727,9 @@ class DreamInterpreter:
                 "clrr can only be used inside a scrn."
             )
 
-        if not self.screen_exists(self.current_screen):
+        if not self.screen_exists(
+            self.current_screen
+        ):
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -638,6 +739,7 @@ class DreamInterpreter:
         ]
 
         if not self.screen_alive(screen):
+
             screen["closed"] = True
             self.current_screen = None
 
@@ -645,24 +747,37 @@ class DreamInterpreter:
                 "The DREAM screen is closed."
             )
 
-        canvas = screen["canvas"]
+        try:
 
-        x = int(x)
-        y = int(y)
+            x = int(x)
+            y = int(y)
+
+        except (TypeError, ValueError):
+
+            raise ValueError(
+                "Pixel coordinates must be numbers."
+            )
 
         key = (x, y)
 
-        screen["pixels"].discard(key)
+        screen["pixels"].discard(
+            key
+        )
 
         try:
 
-            canvas.delete(
+            screen["canvas"].delete(
                 f"pixel_{x}_{y}"
             )
 
         except tk.TclError:
 
             screen["closed"] = True
+
+            self.remove_screen_bindings(
+                self.current_screen
+            )
+
             self.current_screen = None
 
             raise ValueError(
@@ -680,7 +795,9 @@ class DreamInterpreter:
                 "clra can only be used inside a scrn."
             )
 
-        if not self.screen_exists(self.current_screen):
+        if not self.screen_exists(
+            self.current_screen
+        ):
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -690,6 +807,7 @@ class DreamInterpreter:
         ]
 
         if not self.screen_alive(screen):
+
             screen["closed"] = True
             self.current_screen = None
 
@@ -699,15 +817,21 @@ class DreamInterpreter:
 
         try:
 
-            screen["canvas"].delete("all")
+            screen["canvas"].delete(
+                "all"
+            )
 
             screen["pixels"].clear()
-
             screen["text_y"] = 20
 
         except tk.TclError:
 
             screen["closed"] = True
+
+            self.remove_screen_bindings(
+                self.current_screen
+            )
+
             self.current_screen = None
 
             raise ValueError(
@@ -715,8 +839,15 @@ class DreamInterpreter:
             )
 
     # ========================================================
-    # FIND BLOCK END
+    # BLOCK HELPERS
     # ========================================================
+
+    def is_block_start(self, command):
+
+        return re.match(
+            r"^(scrn|rpt|w|if)\b",
+            command
+        ) is not None
 
     def find_block_end(
         self,
@@ -725,10 +856,6 @@ class DreamInterpreter:
     ):
 
         depth = 1
-
-        block_start_pattern = re.compile(
-            r"^(scrn|rpt|w|if)\b"
-        )
 
         for i in range(
             start + 1,
@@ -743,7 +870,7 @@ class DreamInterpreter:
             if command.startswith("@"):
                 continue
 
-            if block_start_pattern.match(command):
+            if self.is_block_start(command):
 
                 depth += 1
 
@@ -756,7 +883,8 @@ class DreamInterpreter:
 
         raise DreamError(
             "E02",
-            "Missing 'end'."
+            "Missing 'end'.",
+            start + 1
         )
 
     # ========================================================
@@ -772,10 +900,6 @@ class DreamInterpreter:
 
         depth = 0
 
-        block_start_pattern = re.compile(
-            r"^(scrn|rpt|w|if)\b"
-        )
-
         for i in range(
             start + 1,
             end
@@ -783,7 +907,13 @@ class DreamInterpreter:
 
             command = lines[i].strip()
 
-            if block_start_pattern.match(command):
+            if not command:
+                continue
+
+            if command.startswith("@"):
+                continue
+
+            if self.is_block_start(command):
 
                 depth += 1
 
@@ -808,33 +938,26 @@ class DreamInterpreter:
 
         value = value.strip()
 
-        # --------------------------------
-        # #variable
-        # --------------------------------
-
         if value.startswith("#"):
 
             name = value[1:].strip()
 
+            if not self.valid_variable_name(name):
+                raise ValueError(
+                    f"Invalid variable name '{name}'."
+                )
+
             if name not in self.variables:
                 raise ValueError(
-                    f"Unknown variable '{name}'"
+                    f"Unknown variable '{name}'."
                 )
 
             return self.variables[name]
-
-        # --------------------------------
-        # Bare variable
-        # --------------------------------
 
         if self.valid_variable_name(value):
 
             if value in self.variables:
                 return self.variables[value]
-
-        # --------------------------------
-        # Quoted strings
-        # --------------------------------
 
         if (
             len(value) >= 2
@@ -850,19 +973,11 @@ class DreamInterpreter:
         ):
             return value[1:-1]
 
-        # --------------------------------
-        # Integer
-        # --------------------------------
-
         if re.fullmatch(
             r"-?\d+",
             value
         ):
             return int(value)
-
-        # --------------------------------
-        # Float
-        # --------------------------------
 
         if re.fullmatch(
             r"-?\d+\.\d+",
@@ -870,30 +985,26 @@ class DreamInterpreter:
         ):
             return float(value)
 
-        # --------------------------------
-        # Math expression
-        # --------------------------------
-
         if re.search(
             r"[+\-*/%]",
             value
         ):
 
-            expression = self.replace_math_variables(
-                value
+            expression = (
+                self.replace_math_variables(
+                    value
+                )
             )
 
-            expression = self.replace_bare_math_variables(
-                expression
+            expression = (
+                self.replace_bare_math_variables(
+                    expression
+                )
             )
 
             return self.safe_math(
                 expression
             )
-
-        # --------------------------------
-        # Raw text
-        # --------------------------------
 
         return value
 
@@ -922,14 +1033,36 @@ class DreamInterpreter:
                 break
 
         if selected_operator is None:
+
             raise ValueError(
-                "Invalid condition"
+                "Invalid condition. "
+                "Expected ==, !=, >, <, >= or <=."
             )
 
-        left_text, right_text = condition.split(
+        parts = condition.split(
             selected_operator,
             1
         )
+
+        if len(parts) != 2:
+
+            raise ValueError(
+                "Invalid condition."
+            )
+
+        left_text, right_text = parts
+
+        if not left_text.strip():
+
+            raise ValueError(
+                "Condition is missing its left value."
+            )
+
+        if not right_text.strip():
+
+            raise ValueError(
+                "Condition is missing its right value."
+            )
 
         left = self.parse_condition_value(
             left_text
@@ -962,8 +1095,10 @@ class DreamInterpreter:
         except TypeError:
 
             raise ValueError(
-                f"Cannot compare {type(left).__name__} "
-                f"with {type(right).__name__}"
+                f"Cannot compare "
+                f"{type(left).__name__} "
+                f"with "
+                f"{type(right).__name__}."
             )
 
         return False
@@ -977,7 +1112,8 @@ class DreamInterpreter:
         screen_name,
         key,
         event_type,
-        block_lines
+        block_lines,
+        block_start_line
     ):
 
         if not self.screen_exists(screen_name):
@@ -1024,17 +1160,55 @@ class DreamInterpreter:
 
             raise ValueError(
                 f"Unknown keyboard event "
-                f"'{event_type}'"
+                f"'{event_type}'. "
+                f"Use 'clk' or 'rel'."
             )
+
+        old_binding_key = (
+            screen_name,
+            sequence
+        )
+
+        old_binding = self.key_bindings.get(
+            old_binding_key
+        )
+
+        if old_binding:
+
+            try:
+
+                canvas.unbind(
+                    sequence,
+                    old_binding
+                )
+
+            except tk.TclError:
+                pass
+
+            self.key_bindings.pop(
+                old_binding_key,
+                None
+            )
+
+        handler_run_id = self.run_id
 
         def handler(
             event,
             lines=block_lines,
-            screen_name=screen_name
+            screen_name=screen_name,
+            source_line=block_start_line,
+            expected_run_id=handler_run_id
         ):
 
-            # Screen may have been closed
-            if not self.screen_exists(screen_name):
+            if expected_run_id != self.run_id:
+                return
+
+            if not self.running:
+                return
+
+            if not self.screen_exists(
+                screen_name
+            ):
                 return
 
             screen = self.screens.get(
@@ -1044,9 +1218,6 @@ class DreamInterpreter:
             if not self.screen_alive(screen):
                 return
 
-            if not self.running:
-                return
-
             old_screen = self.current_screen
 
             self.current_screen = screen_name
@@ -1054,7 +1225,9 @@ class DreamInterpreter:
             try:
 
                 self.execute_block(
-                    lines
+                    lines,
+                    source_offset=source_line,
+                    screen_context=screen_name
                 )
 
             except DreamError as e:
@@ -1067,24 +1240,32 @@ class DreamInterpreter:
 
             except tk.TclError:
 
-                # Window disappeared while event
-                # was being processed.
                 if screen_name in self.screens:
-                    self.screens[screen_name]["closed"] = True
+
+                    self.screens[
+                        screen_name
+                    ]["closed"] = True
+
+                self.current_screen = None
 
             except Exception as e:
 
                 self.error(
                     "E99",
-                    str(e)
+                    str(e),
+                    source_line
                 )
 
             finally:
 
-                # Don't restore a screen that was closed.
-                if self.screen_exists(screen_name):
+                if self.screen_exists(
+                    screen_name
+                ):
+
                     self.current_screen = old_screen
+
                 else:
+
                     self.current_screen = None
 
         try:
@@ -1095,7 +1276,7 @@ class DreamInterpreter:
             )
 
             self.key_bindings[
-                (screen_name, sequence)
+                old_binding_key
             ] = binding_id
 
             canvas.focus_set()
@@ -1103,6 +1284,15 @@ class DreamInterpreter:
         except tk.TclError:
 
             screen["closed"] = True
+
+            self.key_bindings.pop(
+                old_binding_key,
+                None
+            )
+
+            raise ValueError(
+                "Could not create keyboard binding."
+            )
 
     # ========================================================
     # USER INPUT
@@ -1112,19 +1302,24 @@ class DreamInterpreter:
 
         if self.current_screen is None:
 
-            value = simpledialog.askstring(
-                "DREAM Input",
-                "Input:"
-            )
+            try:
 
-            return value or ""
+                value = simpledialog.askstring(
+                    "DREAM Input",
+                    "Input:"
+                )
+
+                return value or ""
+
+            except tk.TclError:
+
+                return ""
 
         if not self.screen_exists(
             self.current_screen
         ):
 
             self.current_screen = None
-
             return ""
 
         screen = self.screens[
@@ -1140,15 +1335,15 @@ class DreamInterpreter:
 
         canvas = screen["canvas"]
 
-        entry = tk.Entry(
-            canvas,
-            bg="black",
-            fg="white",
-            insertbackground="white",
-            font=("Consolas", 14)
-        )
-
         try:
+
+            entry = tk.Entry(
+                canvas,
+                bg="black",
+                fg="white",
+                insertbackground="white",
+                font=("Consolas", 14)
+            )
 
             window_id = canvas.create_window(
                 10,
@@ -1167,7 +1362,10 @@ class DreamInterpreter:
 
         screen["text_y"] += 30
 
-        entry.focus_set()
+        try:
+            entry.focus_set()
+        except tk.TclError:
+            pass
 
         result = {
             "value": None,
@@ -1180,14 +1378,19 @@ class DreamInterpreter:
                 return
 
             try:
+
                 result["value"] = entry.get()
+
             except tk.TclError:
+
                 result["value"] = ""
 
             result["done"] = True
 
             try:
-                canvas.delete(window_id)
+                canvas.delete(
+                    window_id
+                )
             except tk.TclError:
                 pass
 
@@ -1230,945 +1433,1229 @@ class DreamInterpreter:
 
     # ========================================================
     # EXECUTE BLOCK
+    #
+    # IMPORTANT:
+    # screen_context is passed through every nested block.
+    # This prevents pxl/clrr from losing the active scrn.
     # ========================================================
 
     def execute_block(
         self,
         lines,
         start=0,
-        end=None
+        end=None,
+        source_offset=0,
+        screen_context=None
     ):
 
         if end is None:
             end = len(lines)
 
-        i = start
+        # ----------------------------------------------------
+        # Preserve the caller's screen.
+        # ----------------------------------------------------
 
-        while i < end:
+        old_screen = self.current_screen
 
-            if not self.running:
-                return
+        # ----------------------------------------------------
+        # If a screen context was explicitly provided,
+        # restore/use it before executing this block.
+        # ----------------------------------------------------
 
-            raw = lines[i]
+        if screen_context is not None:
 
-            line = raw.strip()
+            if self.screen_exists(
+                screen_context
+            ):
 
-            line_number = i + 1
+                self.current_screen = screen_context
 
-            # --------------------------------------------
-            # Empty
-            # --------------------------------------------
+        try:
 
-            if not line:
+            i = start
 
-                i += 1
-                continue
+            while i < end:
 
-            # --------------------------------------------
-            # Comment
-            # --------------------------------------------
+                if not self.running:
+                    return
 
-            if line.startswith("@"):
+                raw = lines[i]
+                line = raw.strip()
 
-                i += 1
-                continue
-
-            # --------------------------------------------
-            # End
-            # --------------------------------------------
-
-            if line == "end":
-                return
-
-            # --------------------------------------------
-            # Else
-            # --------------------------------------------
-
-            if line == "else":
-                return
-
-            # =================================================
-            # SCREEN
-            # =================================================
-
-            screen_match = re.fullmatch(
-                r"scrn\s+([A-Za-z_][A-Za-z0-9_]*)",
-                line
-            )
-
-            if screen_match:
-
-                screen_name = (
-                    screen_match.group(1)
+                line_number = (
+                    source_offset + i + 1
                 )
 
-                block_end = self.find_block_end(
-                    lines,
-                    i
-                )
+                # ------------------------------------------------
+                # Empty
+                # ------------------------------------------------
 
-                screen = self.create_screen(
-                    screen_name
-                )
+                if not line:
 
-                old_screen = self.current_screen
-
-                self.current_screen = screen_name
-
-                try:
-
-                    self.execute_block(
-                        lines,
-                        i + 1,
-                        block_end
-                    )
-
-                except tk.TclError:
-
-                    screen["closed"] = True
-                    self.current_screen = None
-
-                finally:
-
-                    if self.screen_exists(
-                        screen_name
-                    ):
-
-                        self.current_screen = old_screen
-
-                    else:
-
-                        self.current_screen = None
-
-                i = block_end + 1
-                continue
-
-            # =================================================
-            # ARRAY DECLARATION
-            # =================================================
-
-            array_match = re.fullmatch(
-                r"a\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\[.*\])",
-                line
-            )
-
-            if array_match:
-
-                name = array_match.group(1)
-
-                raw_array = array_match.group(2)
-
-                try:
-
-                    parsed = ast.literal_eval(
-                        raw_array
-                    )
-
-                    if not isinstance(parsed, list):
-                        raise ValueError(
-                            "Array must be a list"
-                        )
-
-                    self.variables[name] = parsed
-
-                except Exception:
-
-                    content = raw_array[1:-1].strip()
-
-                    if not content:
-
-                        self.variables[name] = []
-
-                    else:
-
-                        items = [
-                            item.strip()
-                            for item in content.split(",")
-                        ]
-
-                        cleaned_items = []
-
-                        for item in items:
-
-                            if (
-                                len(item) >= 2
-                                and (
-                                    (
-                                        item[0] == '"'
-                                        and item[-1] == '"'
-                                    )
-                                    or
-                                    (
-                                        item[0] == "'"
-                                        and item[-1] == "'"
-                                    )
-                                )
-                            ):
-
-                                cleaned_items.append(
-                                    item[1:-1]
-                                )
-
-                            elif re.fullmatch(
-                                r"-?\d+",
-                                item
-                            ):
-
-                                cleaned_items.append(
-                                    int(item)
-                                )
-
-                            elif re.fullmatch(
-                                r"-?\d+\.\d+",
-                                item
-                            ):
-
-                                cleaned_items.append(
-                                    float(item)
-                                )
-
-                            else:
-
-                                cleaned_items.append(
-                                    item
-                                )
-
-                        self.variables[name] = (
-                            cleaned_items
-                        )
-
-                i += 1
-                continue
-
-            # =================================================
-            # VARIABLE DECLARATION
-            # =================================================
-
-            variable_match = re.fullmatch(
-                r"s\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)",
-                line
-            )
-
-            if variable_match:
-
-                name = variable_match.group(1)
-
-                value_text = (
-                    variable_match.group(2).strip()
-                )
-
-                try:
-
-                    if (
-                        re.search(
-                            r"[+\-*/%]",
-                            value_text
-                        )
-                        and not (
-                            value_text.startswith('"')
-                            or value_text.startswith("'")
-                        )
-                    ):
-
-                        expression = (
-                            self.replace_math_variables(
-                                value_text
-                            )
-                        )
-
-                        expression = (
-                            self.replace_bare_math_variables(
-                                expression
-                            )
-                        )
-
-                        value = self.safe_math(
-                            expression
-                        )
-
-                    else:
-
-                        value = self.parse_value(
-                            value_text
-                        )
-
-                    self.variables[name] = value
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # ARRAY ASSIGNMENT
-            # =================================================
-
-            array_assignment = re.fullmatch(
-                r"([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(\d+)\s*\]\s*=\s*(.+)",
-                line
-            )
-
-            if array_assignment:
-
-                name = array_assignment.group(1)
-
-                index = int(
-                    array_assignment.group(2)
-                )
-
-                value_text = (
-                    array_assignment.group(3).strip()
-                )
-
-                if name not in self.variables:
-
-                    raise DreamError(
-                        "E04",
-                        f"Unknown variable '{name}'.",
-                        line_number
-                    )
-
-                if not isinstance(
-                    self.variables[name],
-                    list
-                ):
-
-                    raise DreamError(
-                        "E04",
-                        f"Variable '{name}' is not an array.",
-                        line_number
-                    )
-
-                if index < 0 or index >= len(
-                    self.variables[name]
-                ):
-
-                    raise DreamError(
-                        "E04",
-                        f"Array index {index} out of range.",
-                        line_number
-                    )
-
-                try:
-
-                    value = self.parse_value(
-                        value_text
-                    )
-
-                    self.variables[name][index] = value
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # VARIABLE REASSIGNMENT
-            # =================================================
-
-            assignment = re.fullmatch(
-                r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)",
-                line
-            )
-
-            if assignment:
-
-                name = assignment.group(1)
-
-                value_text = (
-                    assignment.group(2).strip()
-                )
-
-                if name not in self.variables:
-
-                    raise DreamError(
-                        "E04",
-                        f"Unknown variable '{name}'.",
-                        line_number
-                    )
-
-                try:
-
-                    # ----------------------------------------
-                    # Arithmetic
-                    # ----------------------------------------
-
-                    if (
-                        re.search(
-                            r"[+\-*/%]",
-                            value_text
-                        )
-                        and not (
-                            value_text.startswith('"')
-                            or value_text.startswith("'")
-                        )
-                    ):
-
-                        expression = (
-                            self.replace_math_variables(
-                                value_text
-                            )
-                        )
-
-                        expression = (
-                            self.replace_bare_math_variables(
-                                expression
-                            )
-                        )
-
-                        value = self.safe_math(
-                            expression
-                        )
-
-                    else:
-
-                        value = self.parse_value(
-                            value_text
-                        )
-
-                    self.variables[name] = value
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # RANDOM
-            # =================================================
-
-            random_match = re.fullmatch(
-                r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
-                line
-            )
-
-            if random_match:
-
-                low_text = random_match.group(1)
-
-                high_text = random_match.group(2)
-
-                try:
-
-                    low = self.parse_condition_value(
-                        low_text
-                    )
-
-                    high = self.parse_condition_value(
-                        high_text
-                    )
-
-                    if not isinstance(
-                        low,
-                        (int, float)
-                    ) or not isinstance(
-                        high,
-                        (int, float)
-                    ):
-
-                        raise ValueError(
-                            "Random limits must be numbers"
-                        )
-
-                    self.variables["random"] = (
-                        random.randint(
-                            int(low),
-                            int(high)
-                        )
-                    )
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # IF
-            # =================================================
-
-            if_match = re.fullmatch(
-                r"if\s+(.+)",
-                line
-            )
-
-            if if_match:
-
-                condition = (
-                    if_match.group(1)
-                )
-
-                block_end = self.find_block_end(
-                    lines,
-                    i
-                )
-
-                else_index = self.find_if_parts(
-                    lines,
-                    i,
-                    block_end
-                )
-
-                try:
-
-                    result = (
-                        self.evaluate_condition(
-                            condition
-                        )
-                    )
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E06",
-                        str(e),
-                        line_number
-                    )
-
-                if result:
-
-                    self.execute_block(
-                        lines,
-                        i + 1,
-                        (
-                            else_index
-                            if else_index is not None
-                            else block_end
-                        )
-                    )
-
-                elif else_index is not None:
-
-                    self.execute_block(
-                        lines,
-                        else_index + 1,
-                        block_end
-                    )
-
-                i = block_end + 1
-                continue
-
-            # =================================================
-            # REPEAT
-            # =================================================
-
-            repeat_match = re.fullmatch(
-                r"rpt\s*\[\s*(.+?)\s*\]",
-                line
-            )
-
-            if repeat_match:
-
-                amount = (
-                    repeat_match.group(1).strip()
-                )
-
-                block_end = self.find_block_end(
-                    lines,
-                    i
-                )
-
-                block_lines = lines[
-                    i + 1:block_end
-                ]
-
-                # --------------------------------------------
-                # FOREVER
-                # --------------------------------------------
-
-                if amount.lower() == "frvr":
-
-                    while self.running:
-
-                        # If the current screen disappeared,
-                        # stop the running game safely.
-                        if self.current_screen is not None:
-
-                            if not self.screen_exists(
-                                self.current_screen
-                            ):
-
-                                self.current_screen = None
-                                self.running = False
-                                break
-
-                        old_screen = (
-                            self.current_screen
-                        )
-
-                        try:
-
-                            self.execute_block(
-                                block_lines
-                            )
-
-                        except DreamError as e:
-
-                            self.error(
-                                e.code,
-                                e.message,
-                                e.line
-                            )
-
-                            break
-
-                        except tk.TclError:
-
-                            if (
-                                old_screen
-                                and old_screen in self.screens
-                            ):
-
-                                self.screens[
-                                    old_screen
-                                ]["closed"] = True
-
-                            self.current_screen = None
-
-                            break
-
-                        except Exception as e:
-
-                            self.error(
-                                "E99",
-                                str(e)
-                            )
-
-                            break
-
-                        finally:
-
-                            if (
-                                old_screen
-                                and self.screen_exists(
-                                    old_screen
-                                )
-                            ):
-
-                                self.current_screen = old_screen
-
-                            else:
-
-                                self.current_screen = None
-
-                        # Process Tkinter events.
-                        try:
-
-                            self.root.update()
-
-                        except tk.TclError:
-
-                            self.running = False
-                            break
-
-                        # Small delay prevents 100% CPU loops.
-                        time.sleep(
-                            self.loop_delay
-                        )
-
-                    i = block_end + 1
+                    i += 1
                     continue
 
-                # --------------------------------------------
-                # Normal repeat
-                # --------------------------------------------
+                # ------------------------------------------------
+                # Comment
+                # ------------------------------------------------
 
-                try:
+                if line.startswith("@"):
 
-                    count = int(
-                        self.parse_condition_value(
-                            amount
-                        )
+                    i += 1
+                    continue
+
+                # ------------------------------------------------
+                # End
+                # ------------------------------------------------
+
+                if line == "end":
+
+                    return
+
+                # ------------------------------------------------
+                # Else
+                # ------------------------------------------------
+
+                if line == "else":
+
+                    return
+
+                # =================================================
+                # SCREEN
+                # =================================================
+
+                screen_match = re.fullmatch(
+                    r"scrn\s+([A-Za-z_][A-Za-z0-9_]*)",
+                    line
+                )
+
+                if screen_match:
+
+                    screen_name = (
+                        screen_match.group(1)
                     )
 
-                except Exception as e:
-
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
+                    block_end = self.find_block_end(
+                        lines,
+                        i
                     )
 
-                for _ in range(count):
+                    screen = self.create_screen(
+                        screen_name
+                    )
 
-                    if not self.running:
-                        break
-
-                    old_screen = (
+                    previous_screen = (
                         self.current_screen
                     )
+
+                    self.current_screen = screen_name
 
                     try:
 
                         self.execute_block(
-                            block_lines
+                            lines,
+                            i + 1,
+                            block_end,
+                            source_offset=source_offset,
+                            screen_context=screen_name
                         )
+
+                    except DreamError:
+
+                        raise
+
+                    except tk.TclError:
+
+                        screen["closed"] = True
+
+                        self.remove_screen_bindings(
+                            screen_name
+                        )
+
+                        self.current_screen = None
 
                     finally:
 
-                        if (
-                            old_screen
-                            and self.screen_exists(
-                                old_screen
-                            )
+                        if self.screen_exists(
+                            screen_name
                         ):
 
-                            self.current_screen = old_screen
+                            self.current_screen = (
+                                previous_screen
+                                if previous_screen is not None
+                                else screen_name
+                            )
 
                         else:
 
                             self.current_screen = None
 
-                i = block_end + 1
-                continue
+                    i = block_end + 1
+                    continue
 
-            # =================================================
-            # KEYBOARD
-            # =================================================
+                # =================================================
+                # ARRAY DECLARATION
+                # =================================================
 
-            keyboard_match = re.fullmatch(
-                r"w\s+([^\s]+)\s+([^\s]+)",
-                line
-            )
-
-            if keyboard_match:
-
-                key = (
-                    keyboard_match.group(1)
+                array_match = re.fullmatch(
+                    r"a\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\[.*\])",
+                    line
                 )
 
-                event_type = (
-                    keyboard_match.group(2)
+                if array_match:
+
+                    name = array_match.group(1)
+                    raw_array = array_match.group(2)
+
+                    try:
+
+                        parsed = ast.literal_eval(
+                            raw_array
+                        )
+
+                        if not isinstance(
+                            parsed,
+                            list
+                        ):
+
+                            raise ValueError(
+                                "Array must be a list."
+                            )
+
+                        self.variables[name] = parsed
+
+                    except Exception:
+
+                        content = (
+                            raw_array[1:-1].strip()
+                        )
+
+                        if not content:
+
+                            self.variables[name] = []
+
+                        else:
+
+                            items = [
+                                item.strip()
+                                for item in content.split(",")
+                            ]
+
+                            cleaned_items = []
+
+                            for item in items:
+
+                                if (
+                                    len(item) >= 2
+                                    and (
+                                        (
+                                            item[0] == '"'
+                                            and item[-1] == '"'
+                                        )
+                                        or
+                                        (
+                                            item[0] == "'"
+                                            and item[-1] == "'"
+                                        )
+                                    )
+                                ):
+
+                                    cleaned_items.append(
+                                        item[1:-1]
+                                    )
+
+                                elif re.fullmatch(
+                                    r"-?\d+",
+                                    item
+                                ):
+
+                                    cleaned_items.append(
+                                        int(item)
+                                    )
+
+                                elif re.fullmatch(
+                                    r"-?\d+\.\d+",
+                                    item
+                                ):
+
+                                    cleaned_items.append(
+                                        float(item)
+                                    )
+
+                                else:
+
+                                    cleaned_items.append(
+                                        item
+                                    )
+
+                            self.variables[name] = (
+                                cleaned_items
+                            )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # VARIABLE DECLARATION
+                # =================================================
+
+                variable_match = re.fullmatch(
+                    r"s\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)",
+                    line
                 )
 
-                if self.current_screen is None:
+                if variable_match:
 
-                    raise DreamError(
-                        "E41",
-                        "w can only be used inside a scrn.",
+                    name = variable_match.group(1)
+
+                    value_text = (
+                        variable_match.group(2).strip()
+                    )
+
+                    try:
+
+                        if (
+                            re.search(
+                                r"[+\-*/%]",
+                                value_text
+                            )
+                            and not (
+                                value_text.startswith('"')
+                                or value_text.startswith("'")
+                            )
+                        ):
+
+                            expression = (
+                                self.replace_math_variables(
+                                    value_text
+                                )
+                            )
+
+                            expression = (
+                                self.replace_bare_math_variables(
+                                    expression
+                                )
+                            )
+
+                            value = self.safe_math(
+                                expression
+                            )
+
+                        else:
+
+                            value = self.parse_value(
+                                value_text
+                            )
+
+                        self.variables[name] = value
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # ARRAY ASSIGNMENT
+                # =================================================
+
+                array_assignment = re.fullmatch(
+                    r"([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(\d+)\s*\]\s*=\s*(.+)",
+                    line
+                )
+
+                if array_assignment:
+
+                    name = array_assignment.group(1)
+
+                    index = int(
+                        array_assignment.group(2)
+                    )
+
+                    value_text = (
+                        array_assignment.group(3).strip()
+                    )
+
+                    if name not in self.variables:
+
+                        raise DreamError(
+                            "E04",
+                            f"Unknown variable '{name}'.",
+                            line_number
+                        )
+
+                    if not isinstance(
+                        self.variables[name],
+                        list
+                    ):
+
+                        raise DreamError(
+                            "E04",
+                            f"Variable '{name}' is not an array.",
+                            line_number
+                        )
+
+                    if index >= len(
+                        self.variables[name]
+                    ):
+
+                        raise DreamError(
+                            "E04",
+                            f"Array index {index} out of range.",
+                            line_number
+                        )
+
+                    try:
+
+                        value = self.parse_value(
+                            value_text
+                        )
+
+                        self.variables[name][index] = value
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # VARIABLE REASSIGNMENT
+                # =================================================
+
+                assignment = re.fullmatch(
+                    r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)",
+                    line
+                )
+
+                if assignment:
+
+                    name = assignment.group(1)
+
+                    value_text = (
+                        assignment.group(2).strip()
+                    )
+
+                    if name not in self.variables:
+
+                        raise DreamError(
+                            "E04",
+                            f"Unknown variable '{name}'.",
+                            line_number
+                        )
+
+                    try:
+
+                        if (
+                            re.search(
+                                r"[+\-*/%]",
+                                value_text
+                            )
+                            and not (
+                                value_text.startswith('"')
+                                or value_text.startswith("'")
+                            )
+                        ):
+
+                            expression = (
+                                self.replace_math_variables(
+                                    value_text
+                                )
+                            )
+
+                            expression = (
+                                self.replace_bare_math_variables(
+                                    expression
+                                )
+                            )
+
+                            value = self.safe_math(
+                                expression
+                            )
+
+                        else:
+
+                            value = self.parse_value(
+                                value_text
+                            )
+
+                        self.variables[name] = value
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # RANDOM
+                # =================================================
+
+                random_match = re.fullmatch(
+                    r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+                    line
+                )
+
+                if random_match:
+
+                    low_text = random_match.group(1)
+                    high_text = random_match.group(2)
+
+                    try:
+
+                        low = self.parse_condition_value(
+                            low_text
+                        )
+
+                        high = self.parse_condition_value(
+                            high_text
+                        )
+
+                        if not isinstance(
+                            low,
+                            (int, float)
+                        ) or not isinstance(
+                            high,
+                            (int, float)
+                        ):
+
+                            raise ValueError(
+                                "Random limits must be numbers."
+                            )
+
+                        low = int(low)
+                        high = int(high)
+
+                        if low > high:
+
+                            raise ValueError(
+                                "Random minimum cannot be greater "
+                                "than maximum."
+                            )
+
+                        self.variables["random"] = (
+                            random.randint(
+                                low,
+                                high
+                            )
+                        )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # IF
+                # =================================================
+
+                if_match = re.fullmatch(
+                    r"if\s+(.+)",
+                    line
+                )
+
+                if if_match:
+
+                    condition = (
+                        if_match.group(1)
+                    )
+
+                    block_end = self.find_block_end(
+                        lines,
+                        i
+                    )
+
+                    else_index = self.find_if_parts(
+                        lines,
+                        i,
+                        block_end
+                    )
+
+                    try:
+
+                        result = (
+                            self.evaluate_condition(
+                                condition
+                            )
+                        )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E06",
+                            str(e),
+                            line_number
+                        )
+
+                    # --------------------------------------------
+                    # TRUE BRANCH
+                    # --------------------------------------------
+
+                    if result:
+
+                        self.execute_block(
+                            lines,
+                            i + 1,
+                            (
+                                else_index
+                                if else_index is not None
+                                else block_end
+                            ),
+                            source_offset=source_offset,
+                            screen_context=(
+                                screen_context
+                                if screen_context is not None
+                                else self.current_screen
+                            )
+                        )
+
+                    # --------------------------------------------
+                    # ELSE BRANCH
+                    # --------------------------------------------
+
+                    elif else_index is not None:
+
+                        self.execute_block(
+                            lines,
+                            else_index + 1,
+                            block_end,
+                            source_offset=source_offset,
+                            screen_context=(
+                                screen_context
+                                if screen_context is not None
+                                else self.current_screen
+                            )
+                        )
+
+                    i = block_end + 1
+                    continue
+
+                # =================================================
+                # REPEAT
+                # =================================================
+
+                repeat_match = re.fullmatch(
+                    r"rpt\s*\[\s*(.+?)\s*\]",
+                    line
+                )
+
+                if repeat_match:
+
+                    amount = (
+                        repeat_match.group(1).strip()
+                    )
+
+                    block_end = self.find_block_end(
+                        lines,
+                        i
+                    )
+
+                    block_lines = lines[
+                        i + 1:block_end
+                    ]
+
+                    active_screen = (
+                        screen_context
+                        if screen_context is not None
+                        else self.current_screen
+                    )
+
+                    # --------------------------------------------
+                    # FOREVER
+                    # --------------------------------------------
+
+                    if amount.lower() == "frvr":
+
+                        while self.running:
+
+                            if active_screen is not None:
+
+                                if not self.screen_exists(
+                                    active_screen
+                                ):
+
+                                    self.current_screen = None
+                                    self.running = False
+                                    break
+
+                                # --------------------------------
+                                # KEEP SCREEN ACTIVE
+                                # --------------------------------
+
+                                self.current_screen = (
+                                    active_screen
+                                )
+
+                            try:
+
+                                self.execute_block(
+                                    block_lines,
+                                    source_offset=(
+                                        source_offset + i + 1
+                                    ),
+                                    screen_context=active_screen
+                                )
+
+                            except DreamError as e:
+
+                                self.error(
+                                    e.code,
+                                    e.message,
+                                    e.line
+                                )
+
+                                break
+
+                            except tk.TclError:
+
+                                if (
+                                    active_screen
+                                    and active_screen in self.screens
+                                ):
+
+                                    self.screens[
+                                        active_screen
+                                    ]["closed"] = True
+
+                                    self.remove_screen_bindings(
+                                        active_screen
+                                    )
+
+                                self.current_screen = None
+                                break
+
+                            except Exception as e:
+
+                                self.error(
+                                    "E99",
+                                    str(e),
+                                    source_offset + i + 1
+                                )
+
+                                break
+
+                            finally:
+
+                                if (
+                                    active_screen
+                                    and self.screen_exists(
+                                        active_screen
+                                    )
+                                ):
+
+                                    self.current_screen = (
+                                        active_screen
+                                    )
+
+                                else:
+
+                                    self.current_screen = None
+
+                            try:
+
+                                self.root.update()
+
+                            except tk.TclError:
+
+                                self.running = False
+                                break
+
+                            time.sleep(
+                                self.loop_delay
+                            )
+
+                        i = block_end + 1
+                        continue
+
+                    # --------------------------------------------
+                    # NORMAL REPEAT
+                    # --------------------------------------------
+
+                    try:
+
+                        parsed_amount = (
+                            self.parse_condition_value(
+                                amount
+                            )
+                        )
+
+                        if isinstance(
+                            parsed_amount,
+                            bool
+                        ):
+
+                            raise ValueError(
+                                "Repeat amount must be a number."
+                            )
+
+                        if not isinstance(
+                            parsed_amount,
+                            (int, float)
+                        ):
+
+                            raise ValueError(
+                                "Repeat amount must be a number."
+                            )
+
+                        if (
+                            isinstance(
+                                parsed_amount,
+                                float
+                            )
+                            and not parsed_amount.is_integer()
+                        ):
+
+                            raise ValueError(
+                                "Repeat amount must be a whole number."
+                            )
+
+                        count = int(
+                            parsed_amount
+                        )
+
+                        if count < 0:
+
+                            raise ValueError(
+                                "Repeat amount cannot be negative."
+                            )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    for _ in range(count):
+
+                        if not self.running:
+                            break
+
+                        if active_screen is not None:
+
+                            if not self.screen_exists(
+                                active_screen
+                            ):
+
+                                self.current_screen = None
+                                break
+
+                            self.current_screen = (
+                                active_screen
+                            )
+
+                        try:
+
+                            self.execute_block(
+                                block_lines,
+                                source_offset=(
+                                    source_offset + i + 1
+                                ),
+                                screen_context=active_screen
+                            )
+
+                        except DreamError:
+
+                            raise
+
+                        except tk.TclError:
+
+                            if (
+                                active_screen
+                                and active_screen in self.screens
+                            ):
+
+                                self.screens[
+                                    active_screen
+                                ]["closed"] = True
+
+                                self.remove_screen_bindings(
+                                    active_screen
+                                )
+
+                            self.current_screen = None
+                            break
+
+                        finally:
+
+                            if (
+                                active_screen
+                                and self.screen_exists(
+                                    active_screen
+                                )
+                            ):
+
+                                self.current_screen = (
+                                    active_screen
+                                )
+
+                            else:
+
+                                self.current_screen = None
+
+                    i = block_end + 1
+                    continue
+
+                # =================================================
+                # KEYBOARD
+                # =================================================
+
+                keyboard_match = re.fullmatch(
+                    r"w\s+([^\s]+)\s+([^\s]+)",
+                    line
+                )
+
+                if keyboard_match:
+
+                    key = (
+                        keyboard_match.group(1)
+                    )
+
+                    event_type = (
+                        keyboard_match.group(2)
+                    )
+
+                    if self.current_screen is None:
+
+                        raise DreamError(
+                            "E41",
+                            "w can only be used inside a scrn.",
+                            line_number
+                        )
+
+                    if not self.screen_exists(
+                        self.current_screen
+                    ):
+
+                        raise DreamError(
+                            "E41",
+                            "The DREAM screen is closed.",
+                            line_number
+                        )
+
+                    block_end = self.find_block_end(
+                        lines,
+                        i
+                    )
+
+                    block_lines = lines[
+                        i + 1:block_end
+                    ]
+
+                    self.bind_key_event(
+                        self.current_screen,
+                        key,
+                        event_type,
+                        block_lines,
                         line_number
                     )
 
-                if not self.screen_exists(
-                    self.current_screen
-                ):
+                    i = block_end + 1
+                    continue
 
-                    raise DreamError(
-                        "E41",
-                        "The DREAM screen is closed.",
-                        line_number
-                    )
+                # =================================================
+                # CLEAR ALL
+                # =================================================
 
-                block_end = self.find_block_end(
-                    lines,
-                    i
+                if line == "clra":
+
+                    try:
+
+                        self.clear_all()
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E41",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # CLEAR PIXEL
+                # =================================================
+
+                clear_match = re.fullmatch(
+                    r"clrr\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+                    line
                 )
 
-                block_lines = lines[
-                    i + 1:block_end
-                ]
+                if clear_match:
 
-                self.bind_key_event(
-                    self.current_screen,
-                    key,
-                    event_type,
-                    block_lines
+                    x_text = (
+                        clear_match.group(1)
+                    )
+
+                    y_text = (
+                        clear_match.group(2)
+                    )
+
+                    try:
+
+                        x = self.parse_condition_value(
+                            x_text
+                        )
+
+                        y = self.parse_condition_value(
+                            y_text
+                        )
+
+                        self.clear_pixel(
+                            int(x),
+                            int(y)
+                        )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E41",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # PIXEL
+                # =================================================
+
+                pixel_match = re.fullmatch(
+                    r"pxl\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+                    line
                 )
 
-                i = block_end + 1
-                continue
+                if pixel_match:
 
-            # =================================================
-            # CLEAR ALL
-            # =================================================
-
-            if line == "clra":
-
-                try:
-
-                    self.clear_all()
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E41",
-                        str(e),
-                        line_number
+                    x_text = (
+                        pixel_match.group(1)
                     )
 
-                i += 1
-                continue
+                    y_text = (
+                        pixel_match.group(2)
+                    )
 
-            # =================================================
-            # CLEAR PIXEL
-            # =================================================
+                    try:
 
-            clear_match = re.fullmatch(
-                r"clrr\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
-                line
-            )
+                        x = self.parse_condition_value(
+                            x_text
+                        )
 
-            if clear_match:
+                        y = self.parse_condition_value(
+                            y_text
+                        )
 
-                x_text = (
-                    clear_match.group(1)
+                        self.draw_pixel(
+                            int(x),
+                            int(y)
+                        )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E41",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # MATH
+                # =================================================
+
+                math_match = re.fullmatch(
+                    r"m\s*\[\s*(.+?)\s*\]",
+                    line
                 )
 
-                y_text = (
-                    clear_match.group(2)
-                )
-
-                try:
-
-                    x = self.parse_condition_value(
-                        x_text
-                    )
-
-                    y = self.parse_condition_value(
-                        y_text
-                    )
-
-                    self.clear_pixel(
-                        int(x),
-                        int(y)
-                    )
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E41",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # PIXEL
-            # =================================================
-
-            pixel_match = re.fullmatch(
-                r"pxl\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
-                line
-            )
-
-            if pixel_match:
-
-                x_text = (
-                    pixel_match.group(1)
-                )
-
-                y_text = (
-                    pixel_match.group(2)
-                )
-
-                try:
-
-                    x = self.parse_condition_value(
-                        x_text
-                    )
-
-                    y = self.parse_condition_value(
-                        y_text
-                    )
-
-                    self.draw_pixel(
-                        int(x),
-                        int(y)
-                    )
-
-                except Exception as e:
-
-                    raise DreamError(
-                        "E41",
-                        str(e),
-                        line_number
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # MATH
-            # =================================================
-
-            math_match = re.fullmatch(
-                r"m\s*\[\s*(.+?)\s*\]",
-                line
-            )
-
-            if math_match:
-
-                expression = (
-                    math_match.group(1)
-                )
-
-                try:
+                if math_match:
 
                     expression = (
-                        self.replace_math_variables(
+                        math_match.group(1)
+                    )
+
+                    try:
+
+                        expression = (
+                            self.replace_math_variables(
+                                expression
+                            )
+                        )
+
+                        expression = (
+                            self.replace_bare_math_variables(
+                                expression
+                            )
+                        )
+
+                        result = self.safe_math(
                             expression
                         )
-                    )
 
-                    expression = (
-                        self.replace_bare_math_variables(
-                            expression
+                        self.output(
+                            result
                         )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E03",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # USER INPUT
+                # =================================================
+
+                if line == "r #usrinp":
+
+                    try:
+
+                        value = self.request_input()
+
+                        if self.current_screen is not None:
+
+                            self.screen_output(
+                                value
+                            )
+
+                        else:
+
+                            self.output(
+                                value
+                            )
+
+                    except Exception as e:
+
+                        raise DreamError(
+                            "E99",
+                            str(e),
+                            line_number
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # ARRAY OUTPUT
+                # =================================================
+
+                array_output = re.fullmatch(
+                    r"r\s+#([A-Za-z_][A-Za-z0-9_]*)\[(\d+)\]",
+                    line
+                )
+
+                if array_output:
+
+                    name = (
+                        array_output.group(1)
                     )
 
-                    result = self.safe_math(
-                        expression
+                    index = int(
+                        array_output.group(2)
                     )
 
-                    self.output(
-                        result
+                    if name not in self.variables:
+
+                        raise DreamError(
+                            "E04",
+                            f"Unknown variable '{name}'.",
+                            line_number
+                        )
+
+                    value = self.variables[name]
+
+                    if not isinstance(
+                        value,
+                        list
+                    ):
+
+                        raise DreamError(
+                            "E04",
+                            f"Variable '{name}' is not an array.",
+                            line_number
+                        )
+
+                    if index >= len(value):
+
+                        raise DreamError(
+                            "E04",
+                            f"Array index {index} out of range.",
+                            line_number
+                        )
+
+                    if self.current_screen is not None:
+
+                        self.screen_output(
+                            value[index]
+                        )
+
+                    else:
+
+                        self.output(
+                            value[index]
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # VARIABLE OUTPUT
+                # =================================================
+
+                variable_output = re.fullmatch(
+                    r"r\s+#([A-Za-z_][A-Za-z0-9_]*)",
+                    line
+                )
+
+                if variable_output:
+
+                    name = (
+                        variable_output.group(1)
                     )
 
-                except Exception as e:
+                    if name not in self.variables:
 
-                    raise DreamError(
-                        "E03",
-                        str(e),
-                        line_number
+                        raise DreamError(
+                            "E04",
+                            f"Unknown variable '{name}'.",
+                            line_number
+                        )
+
+                    value = (
+                        self.variables[name]
                     )
-
-                i += 1
-                continue
-
-            # =================================================
-            # USER INPUT
-            # =================================================
-
-            if line == "r #usrinp":
-
-                try:
-
-                    value = self.request_input()
 
                     if self.current_screen is not None:
 
@@ -2182,162 +2669,80 @@ class DreamInterpreter:
                             value
                         )
 
-                except Exception as e:
+                    i += 1
+                    continue
 
-                    raise DreamError(
-                        "E99",
-                        str(e),
-                        line_number
-                    )
+                # =================================================
+                # NORMAL OUTPUT
+                # =================================================
 
-                i += 1
-                continue
-
-            # =================================================
-            # ARRAY OUTPUT
-            # =================================================
-
-            array_output = re.fullmatch(
-                r"r\s+#([A-Za-z_][A-Za-z0-9_]*)\[(\d+)\]",
-                line
-            )
-
-            if array_output:
-
-                name = (
-                    array_output.group(1)
+                output_match = re.fullmatch(
+                    r"r\s*\[(.*)\]",
+                    line
                 )
 
-                index = int(
-                    array_output.group(2)
-                )
+                if output_match:
 
-                if name not in self.variables:
-
-                    raise DreamError(
-                        "E04",
-                        f"Unknown variable '{name}'.",
-                        line_number
+                    text = (
+                        output_match.group(1)
                     )
 
-                value = self.variables[name]
-
-                if not isinstance(value, list):
-
-                    raise DreamError(
-                        "E04",
-                        f"Variable '{name}' is not an array.",
-                        line_number
-                    )
-
-                if index < 0 or index >= len(value):
-
-                    raise DreamError(
-                        "E04",
-                        f"Array index {index} out of range.",
-                        line_number
-                    )
-
-                if self.current_screen is not None:
-
-                    self.screen_output(
-                        value[index]
-                    )
-
-                else:
-
-                    self.output(
-                        value[index]
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # VARIABLE OUTPUT
-            # =================================================
-
-            variable_output = re.fullmatch(
-                r"r\s+#([A-Za-z_][A-Za-z0-9_]*)",
-                line
-            )
-
-            if variable_output:
-
-                name = (
-                    variable_output.group(1)
-                )
-
-                if name not in self.variables:
-
-                    raise DreamError(
-                        "E04",
-                        f"Unknown variable '{name}'.",
-                        line_number
-                    )
-
-                value = (
-                    self.variables[name]
-                )
-
-                if self.current_screen is not None:
-
-                    self.screen_output(
-                        value
-                    )
-
-                else:
-
-                    self.output(
-                        value
-                    )
-
-                i += 1
-                continue
-
-            # =================================================
-            # NORMAL OUTPUT
-            # =================================================
-
-            output_match = re.fullmatch(
-                r"r\s*\[(.*)\]",
-                line
-            )
-
-            if output_match:
-
-                text = (
-                    output_match.group(1)
-                )
-
-                text = self.format_text(
-                    text
-                )
-
-                if self.current_screen is not None:
-
-                    self.screen_output(
+                    text = self.format_text(
                         text
                     )
 
-                else:
+                    if self.current_screen is not None:
 
-                    self.output(
-                        text
+                        self.screen_output(
+                            text
+                        )
+
+                    else:
+
+                        self.output(
+                            text
+                        )
+
+                    i += 1
+                    continue
+
+                # =================================================
+                # UNKNOWN COMMAND
+                # =================================================
+
+                raise DreamError(
+                    "E01",
+                    f"Unknown command '{line}'.",
+                    line_number
+                )
+
+        finally:
+
+            # ----------------------------------------------------
+            # RESTORE THE SCREEN THAT WAS ACTIVE BEFORE THIS
+            # BLOCK WAS EXECUTED.
+            #
+            # If this block has an explicit screen context,
+            # keep that context instead.
+            # ----------------------------------------------------
+
+            if screen_context is not None:
+
+                if self.screen_exists(
+                    screen_context
+                ):
+
+                    self.current_screen = (
+                        screen_context
                     )
 
-                i += 1
-                continue
+                else:
 
-            # =================================================
-            # UNKNOWN COMMAND
-            # =================================================
+                    self.current_screen = None
 
-            raise DreamError(
-                "E01",
-                f"Unknown command '{line}'.",
-                line_number
-            )
+            else:
+
+                self.current_screen = old_screen
 
     # ========================================================
     # CLOSE ALL SCREENS
@@ -2354,7 +2759,10 @@ class DreamInterpreter:
             self.close_screen(name)
 
         self.screens.clear()
+
         self.current_screen = None
+
+        self.key_bindings.clear()
 
     # ========================================================
     # RUN
@@ -2362,14 +2770,14 @@ class DreamInterpreter:
 
     def run(self, code):
 
-        # Stop previous execution.
+        self.run_id += 1
+
         self.running = False
 
-        # Clean up old DREAM windows.
         self.close_all_screens()
 
         self.variables = {}
-        self.key_bindings = {}
+        self.current_screen = None
 
         self.running = True
 
@@ -2408,12 +2816,14 @@ class DreamInterpreter:
             self.running = False
 
     # ========================================================
-    # STOP FROM IDE
+    # STOP
     # ========================================================
 
     def stop(self):
 
         self.running = False
+
+        self.run_id += 1
 
         self.current_screen = None
 
@@ -2430,7 +2840,7 @@ class DreamIDE:
         self.root = root
 
         self.root.title(
-            "DREAM v0.9 IDE"
+            "DREAM v0.9.1 IDE"
         )
 
         self.root.geometry(
@@ -2457,7 +2867,7 @@ class DreamIDE:
 
         title = tk.Label(
             top,
-            text="DREAM v0.9",
+            text="DREAM v0.9.1",
             bg="#181818",
             fg="white",
             font=("Consolas", 18, "bold")
@@ -2582,7 +2992,14 @@ class DreamIDE:
             pady=(5, 10)
         )
 
+        self.interpreter = None
+
         self.load_default_code()
+
+        self.root.protocol(
+            "WM_DELETE_WINDOW",
+            self.close_ide
+        )
 
     # ========================================================
     # OUTPUT
@@ -2611,10 +3028,16 @@ class DreamIDE:
 
     def clear_output(self):
 
-        self.output_box.delete(
-            "1.0",
-            "end"
-        )
+        try:
+
+            self.output_box.delete(
+                "1.0",
+                "end"
+            )
+
+        except tk.TclError:
+
+            pass
 
     # ========================================================
     # RUN
@@ -2629,15 +3052,13 @@ class DreamIDE:
             "end"
         )
 
-        # Stop and clean up an old interpreter.
-        if hasattr(
-            self,
-            "interpreter"
-        ):
+        if self.interpreter is not None:
 
             try:
+
                 self.interpreter.stop()
                 self.interpreter.close_all_screens()
+
             except Exception:
                 pass
 
@@ -2656,25 +3077,49 @@ class DreamIDE:
 
     def stop_code(self):
 
-        if hasattr(
-            self,
-            "interpreter"
-        ):
+        if self.interpreter is not None:
 
-            self.interpreter.stop()
+            try:
+
+                self.interpreter.stop()
+                self.interpreter.close_all_screens()
+
+            except Exception:
+                pass
 
     # ========================================================
-    # DEFAULT DREAM v0.9 TEST
+    # CLOSE IDE
+    # ========================================================
+
+    def close_ide(self):
+
+        if self.interpreter is not None:
+
+            try:
+
+                self.interpreter.stop()
+                self.interpreter.close_all_screens()
+
+            except Exception:
+                pass
+
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    # ========================================================
+    # DEFAULT DREAM TEST
     # ========================================================
 
     def load_default_code(self):
 
-        code = """@ DREAM v0.9 OFFICIAL TEST
+        code = """@ DREAM v0.9.1 STABILITY TEST
 
 s hp = 100
 s score = 0
 
-r [DREAM v0.9]
+r [DREAM v0.9.1]
 r [HP: {hp}]
 r [Score: {score}]
 
@@ -2720,27 +3165,64 @@ scrn game
     pxl[7,5]
 
     w u-a clk
+
         r [UP WORKS]
+
     end
 
     w d-a clk
+
         r [DOWN WORKS]
+
     end
 
     w l-a clk
+
         r [LEFT WORKS]
+
     end
 
     w r-a clk
+
         r [RIGHT WORKS]
+
     end
 
     w space clk
+
         r [SPACE WORKS]
+
+    end
+
+    @ --------------------------------------------------------
+    @ NESTED SCREEN TEST
+    @ --------------------------------------------------------
+
+    s testx = 10
+    s testy = 10
+
+    rpt[3]
+
+        pxl[testx,testy]
+
+        testx = testx + 1
+
+    end
+
+    if testx == 13
+
+        clrr[10,10]
+        pxl[20,20]
+
     end
 
 end
 """
+
+        self.editor.delete(
+            "1.0",
+            "end"
+        )
 
         self.editor.insert(
             "1.0",
@@ -2751,7 +3233,6 @@ end
 # ============================================================
 # START DREAM
 # ============================================================
-
 
 if __name__ == "__main__":
 
