@@ -5,8 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-
-<title>DREAM — Programming Language</title>
+    <title>DREAM — Programming Language</title>
 
 <style>
     * {
@@ -496,11 +495,9 @@
     }
 </style>
 
-
 </head>
 
 <body>
-
 
 <!-- =========================
      NAVIGATION
@@ -676,13 +673,14 @@
     <div class="version-box">
 
         <div class="version">
-            v0.9.1
+            v0.9.2
         </div>
 
         <p>
-            DREAM 0.9.1 is a stability and bug-fix release.
-            The existing DREAM syntax remains intact while improving
-            reliability.
+            DREAM 0.9.2 is a quality-of-life update.
+            It improves keyboard controls, random value assignments,
+            infinite loops, and the overall experience while keeping
+            the existing DREAM syntax intact.
         </p>
 
     </div>
@@ -732,55 +730,108 @@
 
             <div class="code-wrapper">
 
-                <pre><code id="game-code">s playerX = 10
+                <pre><code id="game-code">@ ============================================================
+@ DREAM GAME v0.9.2
+@ ============================================================
 
+scrn game
 
-s playerY = 10
+    @ --------------------------------------------------------
+    @ PLAYER POSITION
+    @ --------------------------------------------------------
 
-s foodX = rdm [1,30]
-s foodY = rdm [1,20]
+    s x = 20
+    s y = 20
 
-pxl[playerX,playerY]
-pxl[foodX,foodY]
+    s dx = 1
+    s dy = 0
 
-rpt[frvr]
+    @ --------------------------------------------------------
+    @ FOOD POSITION
+    @ --------------------------------------------------------
 
+    s foodx = rdm [1,55]
+    s foody = rdm [1,40]
 
-w [w] clk
-    s playerY = playerY - 1
-end
+    @ Draw player
+    pxl[x,y]
 
-w [s] clk
-    s playerY = playerY + 1
-end
+    @ Draw food
+    pxl[foodx,foody]
 
-w [a] clk
-    s playerX = playerX - 1
-end
+    @ --------------------------------------------------------
+    @ CONTROLS
+    @ --------------------------------------------------------
 
-w [d] clk
-    s playerX = playerX + 1
-end
+    w [u-a] clk
 
-clrr[playerX,playerY]
-pxl[playerX,playerY]
-
-if playerX == foodX
-    if playerY == foodY
-
-        clrr[foodX,foodY]
-
-        s foodX = rdm [1,30]
-        s foodY = rdm [1,20]
-
-        pxl[foodX,foodY]
+        dy = -1
+        dx = 0
 
     end
-end
 
+    w [d-a] clk
+
+        dy = 1
+        dx = 0
+
+    end
+
+    w [l-a] clk
+
+        dx = -1
+        dy = 0
+
+    end
+
+    w [r-a] clk
+
+        dx = 1
+        dy = 0
+
+    end
+
+    @ --------------------------------------------------------
+    @ GAME LOOP
+    @ --------------------------------------------------------
+
+    rpt[frvr]
+
+        @ Remove old player position
+        clrr[x,y]
+
+        @ Move player
+        x = x + dx
+        y = y + dy
+
+        @ Draw player
+        pxl[x,y]
+
+        @ ----------------------------------------------------
+        @ FOOD COLLISION
+        @ ----------------------------------------------------
+
+        if x == foodx
+
+            if y == foody
+
+                @ Remove eaten food
+                clrr[foodx,foody]
+
+                @ Generate new food position
+                foodx = rdm [1,55]
+                foody = rdm [1,40]
+
+                @ Draw new food
+                pxl[foodx,foody]
+
+            end
+
+        end
+
+    end
 
 end</code></pre>
-
 
             </div>
 
@@ -810,23 +861,23 @@ end</code></pre>
 
             <div class="code-wrapper">
 
-                <pre><code id="input-code">r [What is your name?]
+                <pre><code id="input-code">@ ============================================================
+@ DREAM INPUT EXAMPLE v0.9.2
+@ ============================================================
 
-
+r [What is your name?]
 r #usrinp
 
 s age = 15
 
 r [Hello, {usrinp}!]
-
 r [You are {age} years old.]
 
 if age >= 13
-r [You are a teenager.]
+    r [You are old enough to use DREAM!]
 else
-r [You are not a teenager.]
+    r [Welcome, young programmer!]
 end</code></pre>
-
 
             </div>
 
@@ -856,15 +907,68 @@ end</code></pre>
 
             <div class="code-wrapper">
 
-                <pre><code id="hello-code">s name = OpenQ
+                <pre><code id="hello-code">@ ============================================================
+@ DREAM HELLO EXAMPLE v0.9.2
+@ ============================================================
 
+s name = OpenQ
 
 r [Hello from DREAM!]
-
 r [Welcome to {name}]
+r [This is DREAM v0.9.2]</code></pre>
 
-r [This is DREAM v0.9]</code></pre>
+            </div>
 
+        </div>
+
+
+        <!-- =========================
+             PIXEL
+        ========================= -->
+
+        <div class="example">
+
+            <div class="example-header">
+
+                <span>
+                    Pixel Drawing
+                </span>
+
+                <button
+                    class="copy-button"
+                    onclick="copyCode('pixel-code', this)"
+                >
+                    Copy
+                </button>
+
+            </div>
+
+            <div class="code-wrapper">
+
+                <pre><code id="pixel-code">@ ============================================================
+@ DREAM PIXEL EXAMPLE v0.9.2
+@ ============================================================
+
+s x = 10
+s y = 10
+
+scrn pixel_demo
+
+    pxl[x,y]
+    pxl[x+1,y]
+    pxl[x+2,y]
+
+    pxl[x,y+1]
+    pxl[x+1,y+1]
+    pxl[x+2,y+1]
+
+    pxl[x,y+2]
+    pxl[x+1,y+2]
+    pxl[x+2,y+2]
+
+    r [DREAM PIXEL DEMO]
+
+end</code></pre>
 
             </div>
 
@@ -964,6 +1068,19 @@ r [This is DREAM v0.9]</code></pre>
 
         <div class="change">
 
+            <strong>DREAM v0.9.2</strong>
+
+            <p>
+                Quality-of-life update.
+                Improved keyboard input, random value assignments,
+                infinite loops, and overall usability while preserving
+                existing DREAM syntax.
+            </p>
+
+        </div>
+
+        <div class="change">
+
             <strong>DREAM v0.9.1</strong>
 
             <p>
@@ -1001,7 +1118,7 @@ r [This is DREAM v0.9]</code></pre>
     </p>
 
     <p>
-        DREAM v0.9.1
+        DREAM v0.9.2
     </p>
 
 </footer>
