@@ -1,644 +1,740 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>DREAM — Programming Language</title>
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<title>DREAM — Programming Language</title>
 
-        html {
-            scroll-behavior: smooth;
-        }
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
 
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #050b16;
-            color: #eaf4ff;
-            line-height: 1.6;
-        }
+    html {
+        scroll-behavior: smooth;
+    }
 
-        /* =========================
-           NAVBAR
-        ========================= */
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        background: #050b16;
+        color: #eaf4ff;
+        line-height: 1.6;
+    }
+
+    /* =========================
+       NAVBAR
+    ========================= */
+
+    nav {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        padding: 18px 8%;
+
+        background: rgba(5, 11, 22, 0.92);
+        backdrop-filter: blur(12px);
+
+        border-bottom: 1px solid rgba(40, 140, 255, 0.25);
+    }
+
+    .logo {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #38a9ff;
+        letter-spacing: 2px;
+    }
+
+    nav ul {
+        list-style: none;
+        display: flex;
+        gap: 25px;
+    }
+
+    nav a {
+        text-decoration: none;
+        color: #d9eaff;
+        font-weight: bold;
+        transition: 0.25s;
+    }
+
+    nav a:hover {
+        color: #38a9ff;
+    }
+
+    /* =========================
+       HERO
+    ========================= */
+
+    .hero {
+        min-height: 90vh;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+
+        text-align: center;
+
+        padding: 80px 20px;
+
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(20, 130, 255, 0.2),
+                transparent 55%
+            );
+    }
+
+    .hero h1 {
+        font-size: clamp(4rem, 10vw, 8rem);
+        color: #38a9ff;
+
+        text-shadow:
+            0 0 20px rgba(56, 169, 255, 0.5),
+            0 0 60px rgba(56, 169, 255, 0.2);
+
+        margin-bottom: 10px;
+    }
+
+    .hero p {
+        max-width: 700px;
+        color: #9eb6d1;
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+    }
+
+    .buttons {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .button {
+        display: inline-block;
+
+        padding: 14px 25px;
+
+        border-radius: 10px;
+
+        text-decoration: none;
+        font-weight: bold;
+
+        transition: 0.25s;
+    }
+
+    .primary {
+        background: #168cff;
+        color: white;
+
+        box-shadow:
+            0 0 20px rgba(22, 140, 255, 0.3);
+    }
+
+    .primary:hover {
+        transform: translateY(-3px);
+
+        box-shadow:
+            0 0 30px rgba(22, 140, 255, 0.6);
+    }
+
+    .secondary {
+        border: 1px solid #168cff;
+        color: #58b7ff;
+    }
+
+    .secondary:hover {
+        background: rgba(22, 140, 255, 0.1);
+        transform: translateY(-3px);
+    }
+
+    /* =========================
+       SECTIONS
+    ========================= */
+
+    section {
+        padding: 90px 8%;
+    }
+
+    .section-title {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .section-title h2 {
+        font-size: 2.5rem;
+        color: #38a9ff;
+        margin-bottom: 10px;
+    }
+
+    .section-title p {
+        color: #8299b3;
+    }
+
+    /* =========================
+       ABOUT
+    ========================= */
+
+    .about {
+        max-width: 900px;
+        margin: auto;
+        text-align: center;
+    }
+
+    .about p {
+        font-size: 1.15rem;
+        color: #b7c9dc;
+    }
+
+    /* =========================
+       FEATURES
+    ========================= */
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+    }
+
+    .feature {
+        padding: 30px;
+
+        background: #0a1424;
+
+        border: 1px solid rgba(56, 169, 255, 0.18);
+
+        border-radius: 15px;
+
+        transition: 0.25s;
+    }
+
+    .feature:hover {
+        transform: translateY(-6px);
+
+        border-color: rgba(56, 169, 255, 0.55);
+
+        box-shadow:
+            0 10px 35px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature h3 {
+        color: #38a9ff;
+        margin-bottom: 10px;
+    }
+
+    .feature p {
+        color: #91a8c1;
+    }
+
+    /* =========================
+       VERSION
+    ========================= */
+
+    .version-box {
+        max-width: 700px;
+        margin: auto;
+
+        text-align: center;
+
+        padding: 40px;
+
+        background: linear-gradient(
+            145deg,
+            #0b192d,
+            #08111e
+        );
+
+        border: 1px solid rgba(56, 169, 255, 0.3);
+
+        border-radius: 18px;
+
+        box-shadow:
+            0 15px 50px rgba(0, 0, 0, 0.3);
+    }
+
+    .version {
+        font-size: 3rem;
+        font-weight: 900;
+        color: #38a9ff;
+
+        margin-bottom: 10px;
+    }
+
+    .version-box p {
+        color: #9db3ca;
+    }
+
+    /* =========================
+       EXAMPLES
+    ========================= */
+
+    .examples {
+        display: grid;
+        gap: 35px;
+
+        max-width: 1100px;
+        margin: auto;
+    }
+
+    .example {
+        background: #07111f;
+
+        border: 1px solid rgba(56, 169, 255, 0.2);
+
+        border-radius: 15px;
+
+        overflow: hidden;
+
+        box-shadow:
+            0 10px 35px rgba(0, 0, 0, 0.2);
+    }
+
+    .example-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        padding: 18px 22px;
+
+        background: #0c1b2e;
+
+        border-bottom: 1px solid rgba(56, 169, 255, 0.15);
+
+        color: #38a9ff;
+
+        font-weight: bold;
+    }
+
+    .copy-button {
+        border: 1px solid rgba(56, 169, 255, 0.4);
+
+        background: rgba(22, 140, 255, 0.08);
+
+        color: #58b7ff;
+
+        padding: 7px 13px;
+
+        border-radius: 7px;
+
+        cursor: pointer;
+
+        font-weight: bold;
+
+        transition: 0.2s;
+    }
+
+    .copy-button:hover {
+        background: rgba(22, 140, 255, 0.2);
+        border-color: #38a9ff;
+    }
+
+    .code-wrapper {
+        width: 100%;
+
+        overflow-x: auto;
+        overflow-y: visible;
+
+        background: #07111f;
+    }
+
+    pre {
+        margin: 0;
+
+        padding: 25px;
+
+        min-width: max-content;
+
+        overflow: visible;
+
+        white-space: pre;
+
+        color: #dcecff;
+
+        font-family: Consolas, "Courier New", monospace;
+
+        font-size: 0.95rem;
+
+        line-height: 1.7;
+
+        tab-size: 4;
+    }
+
+    code {
+        font-family: inherit;
+    }
+
+    /* =========================
+       DOWNLOAD
+    ========================= */
+
+    .download {
+        text-align: center;
+
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(20, 130, 255, 0.12),
+                transparent 60%
+            );
+    }
+
+    .download p {
+        color: #9db3ca;
+        max-width: 650px;
+        margin: 0 auto 30px;
+    }
+
+    /* =========================
+       GITHUB
+    ========================= */
+
+    .github {
+        text-align: center;
+    }
+
+    .github p {
+        color: #9db3ca;
+        max-width: 650px;
+        margin: 0 auto 30px;
+    }
+
+    /* =========================
+       CHANGELOG
+    ========================= */
+
+    .changelog {
+        max-width: 800px;
+        margin: auto;
+    }
+
+    .change {
+        padding: 20px;
+
+        margin-bottom: 15px;
+
+        background: #0a1424;
+
+        border-left: 3px solid #168cff;
+
+        border-radius: 8px;
+    }
+
+    .change strong {
+        color: #38a9ff;
+    }
+
+    .change p {
+        color: #9db3ca;
+        margin-top: 5px;
+    }
+
+    /* =========================
+       FOOTER
+    ========================= */
+
+    footer {
+        text-align: center;
+
+        padding: 35px 20px;
+
+        border-top: 1px solid rgba(56, 169, 255, 0.15);
+
+        color: #647b95;
+    }
+
+    footer span {
+        color: #38a9ff;
+    }
+
+    /* =========================
+       MOBILE
+    ========================= */
+
+    @media (max-width: 700px) {
 
         nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-
-            padding: 18px 8%;
-
-            background: rgba(5, 11, 22, 0.9);
-            backdrop-filter: blur(12px);
-
-            border-bottom: 1px solid rgba(40, 140, 255, 0.25);
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 900;
-            color: #38a9ff;
-            letter-spacing: 2px;
+            flex-direction: column;
+            gap: 12px;
         }
 
         nav ul {
-            list-style: none;
-            display: flex;
-            gap: 25px;
-        }
-
-        nav a {
-            text-decoration: none;
-            color: #d9eaff;
-            font-weight: bold;
-            transition: 0.25s;
-        }
-
-        nav a:hover {
-            color: #38a9ff;
-        }
-
-        /* =========================
-           HERO
-        ========================= */
-
-        .hero {
-            min-height: 90vh;
-
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-
-            text-align: center;
-
-            padding: 80px 20px;
-
-            background:
-                radial-gradient(
-                    circle at center,
-                    rgba(20, 130, 255, 0.2),
-                    transparent 55%
-                );
-        }
-
-        .hero h1 {
-            font-size: clamp(4rem, 10vw, 8rem);
-            color: #38a9ff;
-
-            text-shadow:
-                0 0 20px rgba(56, 169, 255, 0.5),
-                0 0 60px rgba(56, 169, 255, 0.2);
-
-            margin-bottom: 10px;
-        }
-
-        .hero p {
-            max-width: 700px;
-            color: #9eb6d1;
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-        }
-
-        .buttons {
-            display: flex;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
             justify-content: center;
         }
 
-        .button {
-            display: inline-block;
-
-            padding: 14px 25px;
-
-            border-radius: 10px;
-
-            text-decoration: none;
-            font-weight: bold;
-
-            transition: 0.25s;
-        }
-
-        .primary {
-            background: #168cff;
-            color: white;
-
-            box-shadow:
-                0 0 20px rgba(22, 140, 255, 0.3);
-        }
-
-        .primary:hover {
-            transform: translateY(-3px);
-            box-shadow:
-                0 0 30px rgba(22, 140, 255, 0.6);
-        }
-
-        .secondary {
-            border: 1px solid #168cff;
-            color: #58b7ff;
-        }
-
-        .secondary:hover {
-            background: rgba(22, 140, 255, 0.1);
-            transform: translateY(-3px);
-        }
-
-        /* =========================
-           SECTIONS
-        ========================= */
-
         section {
-            padding: 90px 8%;
+            padding: 70px 5%;
         }
 
-        .section-title {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-
-        .section-title h2 {
-            font-size: 2.5rem;
-            color: #38a9ff;
-            margin-bottom: 10px;
-        }
-
-        .section-title p {
-            color: #8299b3;
-        }
-
-        /* =========================
-           ABOUT
-        ========================= */
-
-        .about {
-            max-width: 900px;
-            margin: auto;
-            text-align: center;
-        }
-
-        .about p {
-            font-size: 1.15rem;
-            color: #b7c9dc;
-        }
-
-        /* =========================
-           FEATURES
-        ========================= */
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
+        .hero h1 {
+            font-size: 4rem;
         }
 
         .feature {
-            padding: 30px;
-
-            background: #0a1424;
-
-            border: 1px solid rgba(56, 169, 255, 0.18);
-
-            border-radius: 15px;
-
-            transition: 0.25s;
-        }
-
-        .feature:hover {
-            transform: translateY(-6px);
-
-            border-color: rgba(56, 169, 255, 0.55);
-
-            box-shadow:
-                0 10px 35px rgba(0, 0, 0, 0.3);
-        }
-
-        .feature h3 {
-            color: #38a9ff;
-            margin-bottom: 10px;
-        }
-
-        .feature p {
-            color: #91a8c1;
-        }
-
-        /* =========================
-           VERSION
-        ========================= */
-
-        .version-box {
-            max-width: 700px;
-            margin: auto;
-
-            text-align: center;
-
-            padding: 40px;
-
-            background: linear-gradient(
-                145deg,
-                #0b192d,
-                #08111e
-            );
-
-            border: 1px solid rgba(56, 169, 255, 0.3);
-
-            border-radius: 18px;
-
-            box-shadow:
-                0 15px 50px rgba(0, 0, 0, 0.3);
-        }
-
-        .version {
-            font-size: 3rem;
-            font-weight: 900;
-            color: #38a9ff;
-
-            margin-bottom: 10px;
-        }
-
-        .version-box p {
-            color: #9db3ca;
-        }
-
-        /* =========================
-           EXAMPLES
-        ========================= */
-
-        .examples {
-            display: grid;
-            gap: 35px;
-        }
-
-        .example {
-            background: #07111f;
-
-            border: 1px solid rgba(56, 169, 255, 0.2);
-
-            border-radius: 15px;
-
-            overflow: hidden;
+            padding: 25px;
         }
 
         .example-header {
-            padding: 18px 22px;
-
-            background: #0c1b2e;
-
-            border-bottom: 1px solid rgba(56, 169, 255, 0.15);
-
-            color: #38a9ff;
-
-            font-weight: bold;
+            padding: 15px;
         }
 
         pre {
-            padding: 25px;
-
-            overflow-x: auto;
-
-            color: #dcecff;
-
-            font-family: Consolas, monospace;
-
-            font-size: 0.95rem;
-
-            line-height: 1.7;
-        }
-
-        /* =========================
-           DOWNLOAD
-        ========================= */
-
-        .download {
-            text-align: center;
-
-            background:
-                radial-gradient(
-                    circle at center,
-                    rgba(20, 130, 255, 0.12),
-                    transparent 60%
-                );
-        }
-
-        .download p {
-            color: #9db3ca;
-            max-width: 650px;
-            margin: 0 auto 30px;
-        }
-
-        /* =========================
-           GITHUB
-        ========================= */
-
-        .github {
-            text-align: center;
-        }
-
-        .github p {
-            color: #9db3ca;
-            max-width: 650px;
-            margin: 0 auto 30px;
-        }
-
-        /* =========================
-           CHANGELOG
-        ========================= */
-
-        .changelog {
-            max-width: 800px;
-            margin: auto;
-        }
-
-        .change {
+            font-size: 0.85rem;
             padding: 20px;
-
-            margin-bottom: 15px;
-
-            background: #0a1424;
-
-            border-left: 3px solid #168cff;
-
-            border-radius: 8px;
         }
+    }
+</style>
 
-        .change strong {
-            color: #38a9ff;
-        }
 
-        .change p {
-            color: #9db3ca;
-            margin-top: 5px;
-        }
-
-        /* =========================
-           FOOTER
-        ========================= */
-
-        footer {
-            text-align: center;
-
-            padding: 35px 20px;
-
-            border-top: 1px solid rgba(56, 169, 255, 0.15);
-
-            color: #647b95;
-        }
-
-        footer span {
-            color: #38a9ff;
-        }
-
-        /* =========================
-           MOBILE
-        ========================= */
-
-        @media (max-width: 700px) {
-
-            nav {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            nav ul {
-                gap: 12px;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-
-            section {
-                padding: 70px 5%;
-            }
-
-            .hero h1 {
-                font-size: 4rem;
-            }
-
-            .feature {
-                padding: 25px;
-            }
-
-            pre {
-                font-size: 0.85rem;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-    <!-- =========================
-         NAVIGATION
-    ========================= -->
 
-    <nav>
-        <div class="logo">DREAM</div>
+<!-- =========================
+     NAVIGATION
+========================= -->
 
-        <ul>
-            <li><a href="#about">About</a></li>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#examples">Examples</a></li>
-            <li><a href="#download">Download</a></li>
-            <li><a href="#github">GitHub</a></li>
-        </ul>
-    </nav>
+<nav>
+
+    <div class="logo">
+        DREAM
+    </div>
+
+    <ul>
+        <li><a href="#about">About</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#examples">Examples</a></li>
+        <li><a href="#download">Download</a></li>
+        <li><a href="#github">GitHub</a></li>
+    </ul>
+
+</nav>
 
 
-    <!-- =========================
-         HERO
-    ========================= -->
+<!-- =========================
+     HERO
+========================= -->
 
-    <header class="hero">
+<header class="hero">
 
-        <h1>DREAM</h1>
+    <h1>DREAM</h1>
+
+    <p>
+        A hard programming language designed for advanced users,
+        built mainly in Python.
+    </p>
+
+    <div class="buttons">
+
+        <a
+            class="button primary"
+            href="dream.py"
+            download="dream.py"
+        >
+            ↓ Download DREAM
+        </a>
+
+        <a
+            class="button secondary"
+            href="https://github.com/jacobososaf-commits/DREAM"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            GitHub
+        </a>
+
+    </div>
+
+</header>
+
+
+<!-- =========================
+     ABOUT
+========================= -->
+
+<section id="about">
+
+    <div class="section-title">
+
+        <h2>About DREAM</h2>
 
         <p>
-            A hard programming language designed for advanced users,
-            built mainly in Python.
+            Simple syntax. Powerful ideas.
         </p>
 
-        <div class="buttons">
+    </div>
 
-            <!-- REAL DREAM.PY DOWNLOAD -->
-            <a
-                class="button primary"
-                href="dream.py"
-                download="dream.py"
-            >
-                ↓ Download DREAM
-            </a>
+    <div class="about">
 
-            <!-- GITHUB -->
-            <a
-                class="button secondary"
-                href="https://github.com/jacobososaf-commits/DREAM"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                GitHub
-            </a>
+        <p>
+            DREAM is a custom programming language created by OpenQ.
+            It is designed to be challenging while providing its own
+            unique syntax for variables, input, math, loops, pixels,
+            keyboard controls, and more.
+        </p>
 
-        </div>
+    </div>
 
-    </header>
+</section>
 
 
-    <!-- =========================
-         ABOUT
-    ========================= -->
+<!-- =========================
+     FEATURES
+========================= -->
 
-    <section id="about">
+<section id="features">
 
-        <div class="section-title">
-            <h2>About DREAM</h2>
-            <p>Simple syntax. Powerful ideas.</p>
-        </div>
+    <div class="section-title">
 
-        <div class="about">
+        <h2>Features</h2>
+
+        <p>
+            Some of the things you can do with DREAM.
+        </p>
+
+    </div>
+
+    <div class="features">
+
+        <div class="feature">
+            <h3>Variables</h3>
 
             <p>
-                DREAM is a custom programming language created by OpenQ.
-                It is designed to be challenging while providing its own
-                unique syntax for variables, input, math, loops, pixels,
-                keyboard controls, and more.
+                Store information using DREAM's simple variable syntax.
             </p>
-
         </div>
 
-    </section>
-
-
-    <!-- =========================
-         FEATURES
-    ========================= -->
-
-    <section id="features">
-
-        <div class="section-title">
-
-            <h2>Features</h2>
+        <div class="feature">
+            <h3>Math</h3>
 
             <p>
-                Some of the things you can do with DREAM.
+                Perform calculations directly inside DREAM programs.
             </p>
-
         </div>
 
-        <div class="features">
-
-            <div class="feature">
-                <h3>Variables</h3>
-                <p>
-                    Store information using DREAM's simple variable syntax.
-                </p>
-            </div>
-
-            <div class="feature">
-                <h3>Math</h3>
-                <p>
-                    Perform calculations directly inside DREAM programs.
-                </p>
-            </div>
-
-            <div class="feature">
-                <h3>Loops</h3>
-                <p>
-                    Repeat code using normal and infinite repeat loops.
-                </p>
-            </div>
-
-            <div class="feature">
-                <h3>User Input</h3>
-                <p>
-                    Let your programs communicate with the user.
-                </p>
-            </div>
-
-            <div class="feature">
-                <h3>Pixels</h3>
-                <p>
-                    Draw and clear pixels to create graphical programs.
-                </p>
-            </div>
-
-            <div class="feature">
-                <h3>Keyboard Events</h3>
-                <p>
-                    Detect keyboard input for interactive programs and games.
-                </p>
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================
-         VERSION
-    ========================= -->
-
-    <section>
-
-        <div class="section-title">
-            <h2>Latest Version</h2>
-        </div>
-
-        <div class="version-box">
-
-            <div class="version">
-                v0.9.1
-            </div>
+        <div class="feature">
+            <h3>Loops</h3>
 
             <p>
-                DREAM 0.9.1 is a stability and bug-fix release.
-                The existing DREAM syntax remains intact while improving
-                reliability.
+                Repeat code using normal and infinite repeat loops.
             </p>
-
         </div>
 
-    </section>
-
-
-    <!-- =========================
-         EXAMPLES
-    ========================= -->
-
-    <section id="examples">
-
-        <div class="section-title">
-
-            <h2>Examples</h2>
+        <div class="feature">
+            <h3>User Input</h3>
 
             <p>
-                A few examples of DREAM code.
+                Let your programs communicate with the user.
             </p>
-
         </div>
 
-        <div class="examples">
+        <div class="feature">
+            <h3>Pixels</h3>
+
+            <p>
+                Draw and clear pixels to create graphical programs.
+            </p>
+        </div>
+
+        <div class="feature">
+            <h3>Keyboard Events</h3>
+
+            <p>
+                Detect keyboard input for interactive programs and games.
+            </p>
+        </div>
+
+    </div>
+
+</section>
 
 
-            <!-- GAME -->
+<!-- =========================
+     VERSION
+========================= -->
 
-            <div class="example">
+<section>
 
-                <div class="example-header">
+    <div class="section-title">
+
+        <h2>Latest Version</h2>
+
+    </div>
+
+    <div class="version-box">
+
+        <div class="version">
+            v0.9.1
+        </div>
+
+        <p>
+            DREAM 0.9.1 is a stability and bug-fix release.
+            The existing DREAM syntax remains intact while improving
+            reliability.
+        </p>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     EXAMPLES
+========================= -->
+
+<section id="examples">
+
+    <div class="section-title">
+
+        <h2>Examples</h2>
+
+        <p>
+            Full DREAM programs you can read, copy, and experiment with.
+        </p>
+
+    </div>
+
+    <div class="examples">
+
+
+        <!-- =========================
+             GAME
+        ========================= -->
+
+        <div class="example">
+
+            <div class="example-header">
+
+                <span>
                     Game
-                </div>
+                </span>
 
-                <pre><code>
-s playerX = 10
+                <button
+                    class="copy-button"
+                    onclick="copyCode('game-code', this)"
+                >
+                    Copy
+                </button>
+
+            </div>
+
+            <div class="code-wrapper">
+
+                <pre><code id="game-code">s playerX = 10
+
+
 s playerY = 10
 
 s foodX = rdm [1,30]
@@ -649,54 +745,73 @@ pxl[foodX,foodY]
 
 rpt[frvr]
 
-    w [w] clk
-        s playerY = playerY - 1
-    end
 
-    w [s] clk
-        s playerY = playerY + 1
-    end
-
-    w [a] clk
-        s playerX = playerX - 1
-    end
-
-    w [d] clk
-        s playerX = playerX + 1
-    end
-
-    clrr[playerX,playerY]
-    pxl[playerX,playerY]
-
-    if playerX == foodX
-        if playerY == foodY
-
-            clrr[foodX,foodY]
-
-            s foodX = rdm [1,30]
-            s foodY = rdm [1,20]
-
-            pxl[foodX,foodY]
-
-        end
-    end
-
+w [w] clk
+    s playerY = playerY - 1
 end
-                </code></pre>
+
+w [s] clk
+    s playerY = playerY + 1
+end
+
+w [a] clk
+    s playerX = playerX - 1
+end
+
+w [d] clk
+    s playerX = playerX + 1
+end
+
+clrr[playerX,playerY]
+pxl[playerX,playerY]
+
+if playerX == foodX
+    if playerY == foodY
+
+        clrr[foodX,foodY]
+
+        s foodX = rdm [1,30]
+        s foodY = rdm [1,20]
+
+        pxl[foodX,foodY]
+
+    end
+end
+
+
+end</code></pre>
+
 
             </div>
 
+        </div>
 
-            <!-- INPUT -->
 
-            <div class="example">
+        <!-- =========================
+             INPUT
+        ========================= -->
 
-                <div class="example-header">
+        <div class="example">
+
+            <div class="example-header">
+
+                <span>
                     Input & Conditions
-                </div>
+                </span>
 
-                <pre><code>
-r [What is your name?]
+                <button
+                    class="copy-button"
+                    onclick="copyCode('input-code', this)"
+                >
+                    Copy
+                </button>
+
+            </div>
+
+            <div class="code-wrapper">
+
+                <pre><code id="input-code">r [What is your name?]
+
 
 r #usrinp
 
@@ -707,176 +822,225 @@ r [Hello, {usrinp}!]
 r [You are {age} years old.]
 
 if age >= 13
-    r [You are a teenager.]
+r [You are a teenager.]
 else
-    r [You are not a teenager.]
-end
-                </code></pre>
+r [You are not a teenager.]
+end</code></pre>
+
 
             </div>
 
+        </div>
 
-            <!-- HELLO -->
 
-            <div class="example">
+        <!-- =========================
+             HELLO WORLD
+        ========================= -->
 
-                <div class="example-header">
+        <div class="example">
+
+            <div class="example-header">
+
+                <span>
                     Hello World
-                </div>
+                </span>
 
-                <pre><code>
-s name = OpenQ
+                <button
+                    class="copy-button"
+                    onclick="copyCode('hello-code', this)"
+                >
+                    Copy
+                </button>
+
+            </div>
+
+            <div class="code-wrapper">
+
+                <pre><code id="hello-code">s name = OpenQ
+
 
 r [Hello from DREAM!]
 
 r [Welcome to {name}]
 
-r [This is DREAM v0.9]
-                </code></pre>
+r [This is DREAM v0.9]</code></pre>
+
 
             </div>
 
         </div>
 
-    </section>
+
+    </div>
+
+</section>
 
 
-    <!-- =========================
-         DOWNLOAD
-    ========================= -->
+<!-- =========================
+     DOWNLOAD
+========================= -->
 
-    <section id="download" class="download">
+<section id="download" class="download">
 
-        <div class="section-title">
+    <div class="section-title">
 
-            <h2>Download DREAM</h2>
-
-            <p>
-                Get the actual DREAM interpreter and start experimenting.
-            </p>
-
-        </div>
-
-        <div class="buttons">
-
-            <!--
-                THIS DOWNLOADS THE REAL dream.py
-                FROM THE SAME FOLDER AS THIS WEBSITE.
-            -->
-
-            <a
-                class="button primary"
-                href="dream.py"
-                download="dream.py"
-            >
-                ↓ Download dream.py
-            </a>
-
-        </div>
-
-        <p style="margin-top:25px;">
-            The download above points directly to the
-            <strong>dream.py</strong> file included with this website.
-        </p>
-
-    </section>
-
-
-    <!-- =========================
-         GITHUB
-    ========================= -->
-
-    <section id="github" class="github">
-
-        <div class="section-title">
-
-            <h2>Open Source</h2>
-
-            <p>
-                Explore the source code and follow DREAM's development.
-            </p>
-
-        </div>
-
-        <div class="buttons">
-
-            <a
-                class="button secondary"
-                href="https://github.com/jacobososaf-commits/DREAM"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                View DREAM on GitHub →
-            </a>
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================
-         CHANGELOG
-    ========================= -->
-
-    <section>
-
-        <div class="section-title">
-
-            <h2>Changelog</h2>
-
-            <p>
-                The evolution of DREAM.
-            </p>
-
-        </div>
-
-        <div class="changelog">
-
-            <div class="change">
-
-                <strong>DREAM v0.9.1</strong>
-
-                <p>
-                    Stability and bug-fix release.
-                    Existing DREAM syntax preserved.
-                </p>
-
-            </div>
-
-            <div class="change">
-
-                <strong>DREAM v0.9</strong>
-
-                <p>
-                    Major development milestone introducing
-                    improvements to the language and interpreter.
-                </p>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================
-         FOOTER
-    ========================= -->
-
-    <footer>
+        <h2>Download DREAM</h2>
 
         <p>
-            DREAM is a programming language by
-            <span>OpenQ</span>.
+            Get the actual DREAM interpreter and start experimenting.
         </p>
+
+    </div>
+
+    <div class="buttons">
+
+        <a
+            class="button primary"
+            href="dream.py"
+            download="dream.py"
+        >
+            ↓ Download dream.py
+        </a>
+
+    </div>
+
+    <p style="margin-top:25px;">
+        The download above points directly to the
+        <strong>dream.py</strong> file included with this website.
+    </p>
+
+</section>
+
+
+<!-- =========================
+     GITHUB
+========================= -->
+
+<section id="github" class="github">
+
+    <div class="section-title">
+
+        <h2>Open Source</h2>
 
         <p>
-            DREAM v0.9.1
+            Explore the source code and follow DREAM's development.
         </p>
 
-    </footer>
+    </div>
+
+    <div class="buttons">
+
+        <a
+            class="button secondary"
+            href="https://github.com/jacobososaf-commits/DREAM"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            View DREAM on GitHub →
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     CHANGELOG
+========================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <h2>Changelog</h2>
+
+        <p>
+            The evolution of DREAM.
+        </p>
+
+    </div>
+
+    <div class="changelog">
+
+        <div class="change">
+
+            <strong>DREAM v0.9.1</strong>
+
+            <p>
+                Stability and bug-fix release.
+                Existing DREAM syntax preserved.
+            </p>
+
+        </div>
+
+        <div class="change">
+
+            <strong>DREAM v0.9</strong>
+
+            <p>
+                Major development milestone introducing
+                improvements to the language and interpreter.
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer>
+
+    <p>
+        DREAM is a programming language by
+        <span>OpenQ</span>.
+    </p>
+
+    <p>
+        DREAM v0.9.1
+    </p>
+
+</footer>
+
+
+<!-- =========================
+     COPY CODE SCRIPT
+========================= -->
+
+<script>
+
+    function copyCode(id, button) {
+
+        const code = document.getElementById(id).innerText;
+
+        navigator.clipboard.writeText(code).then(() => {
+
+            const originalText = button.innerText;
+
+            button.innerText = "Copied!";
+
+            setTimeout(() => {
+                button.innerText = originalText;
+            }, 1500);
+
+        }).catch(() => {
+
+            button.innerText = "Failed";
+
+            setTimeout(() => {
+                button.innerText = "Copy";
+            }, 1500);
+
+        });
+
+    }
+
+</script>
 
 
 </body>
 </html>
-
