@@ -1,5 +1,5 @@
 @ ============================================================
-@ DREAM GAME v0.9.1
+@ DREAM GAME v0.9.2
 @ ============================================================
 
 scrn game
@@ -18,11 +18,8 @@ scrn game
     @ FOOD POSITION
     @ --------------------------------------------------------
 
-    rdm [1,55]
-    s foodx = #random
-
-    rdm [1,40]
-    s foody = #random
+    s foodx = rdm [1,55]
+    s foody = rdm [1,40]
 
     @ Draw player
     pxl[x,y]
@@ -34,28 +31,28 @@ scrn game
     @ CONTROLS
     @ --------------------------------------------------------
 
-    w u-a clk
+    w [u-a] clk
 
         dy = -1
         dx = 0
 
     end
 
-    w d-a clk
+    w [d-a] clk
 
         dy = 1
         dx = 0
 
     end
 
-    w l-a clk
+    w [l-a] clk
 
         dx = -1
         dy = 0
 
     end
 
-    w r-a clk
+    w [r-a] clk
 
         dx = 1
         dy = 0
@@ -89,13 +86,9 @@ scrn game
                 @ Remove eaten food
                 clrr[foodx,foody]
 
-                @ Generate new random X
-                rdm [1,55]
-                foodx = #random
-
-                @ Generate new random Y
-                rdm [1,40]
-                foody = #random
+                @ Generate new food position
+                foodx = rdm [1,55]
+                foody = rdm [1,40]
 
                 @ Draw new food
                 pxl[foodx,foody]
@@ -107,4 +100,3 @@ scrn game
     end
 
 end
-

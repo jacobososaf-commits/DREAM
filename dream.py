@@ -8,23 +8,30 @@ import time
 
 
 # ============================================================
-# DREAM v0.9.1
-# STABILITY / BUG-FIX BUILD
+# DREAM v0.9.2
+# QUALITY OF LIFE UPDATE
 #
-# FIX:
-# Nested blocks now preserve their active screen context.
+# Improvements:
 #
-# This allows:
+# - Better infinite loops
+# - Better GUI responsiveness
+# - Better pixel handling
+# - Better keyboard handling
+# - Multiple keyboard handlers supported
+# - Bracketed keyboard syntax supported:
+#       w [w] clk
+#       w [a] clk
+#       w [space] clk
 #
-# scrn game
-#     rpt[frvr]
-#         if x == 5
-#             pxl[x,y]
-#             clrr[x,y]
-#         end
-#     end
-# end
+# - Random values can now be assigned directly:
+#       s foodX = rdm [1,30]
 #
+# - Improved screen cleanup
+# - Improved stopping
+# - Improved error handling
+# - Screen resizing support
+#
+# Existing DREAM syntax is preserved.
 # ============================================================
 
 
@@ -52,26 +59,48 @@ class DreamInterpreter:
         self.root = root
         self.output_callback = output_callback
 
+        # ----------------------------------------------------
+        # Variables
+        # ----------------------------------------------------
+
         self.variables = {}
 
         # ----------------------------------------------------
-        # Screen data
+        # Screens
         # ----------------------------------------------------
 
         self.screens = {}
         self.current_screen = None
 
         # ----------------------------------------------------
-        # Runtime state
+        # Runtime
         # ----------------------------------------------------
 
         self.running = False
-
         self.run_id = 0
+
+        # ----------------------------------------------------
+        # Keyboard
+        #
+        # key:
+        #     (screen_name, sequence)
+        #
+        # value:
+        #     list of binding IDs
+        #
+        # Multiple DREAM w blocks can now use the same key.
+        # ----------------------------------------------------
 
         self.key_bindings = {}
 
+        # ----------------------------------------------------
+        # Game loop timing
+        # ----------------------------------------------------
+
         self.loop_delay = 0.03
+
+        # Prevent a program from hammering update() endlessly.
+        self.max_gui_updates_per_cycle = 3
 
     # ========================================================
     # OUTPUT
@@ -93,6 +122,57 @@ class DreamInterpreter:
         else:
             self.output(
                 f"DREAM ERROR {code} | {message}"
+            )
+
+    # ========================================================
+    # GUI UPDATE
+    # ========================================================
+
+    def update_gui(self):
+
+        if not self.running:
+            return
+
+        try:
+
+            for _ in range(
+                self.max_gui_updates_per_cycle
+            ):
+                self.root.update_idletasks()
+
+            self.root.update()
+
+        except tk.TclError:
+
+            self.running = False
+
+    # ========================================================
+    # SAFE SLEEP
+    # ========================================================
+
+    def game_sleep(self, duration):
+
+        if duration <= 0:
+            return
+
+        end_time = time.monotonic() + duration
+
+        while self.running:
+
+            remaining = (
+                end_time - time.monotonic()
+            )
+
+            if remaining <= 0:
+                break
+
+            self.update_gui()
+
+            if not self.running:
+                break
+
+            time.sleep(
+                min(remaining, 0.005)
             )
 
     # ========================================================
@@ -123,7 +203,10 @@ class DreamInterpreter:
                 if isinstance(node.value, bool):
                     return node.value
 
-                if isinstance(node.value, (int, float)):
+                if isinstance(
+                    node.value,
+                    (int, float)
+                ):
                     return node.value
 
                 raise ValueError(
@@ -143,17 +226,20 @@ class DreamInterpreter:
                     )
 
                 try:
+
                     return operators[op_type](
                         left,
                         right
                     )
 
                 except ZeroDivisionError:
+
                     raise ValueError(
                         "Division by zero."
                     )
 
                 except OverflowError:
+
                     raise ValueError(
                         "Math result is too large."
                     )
@@ -161,6 +247,7 @@ class DreamInterpreter:
             if isinstance(node, ast.UnaryOp):
 
                 operand = evaluate(node.operand)
+
                 op_type = type(node.op)
 
                 if op_type not in operators:
@@ -169,11 +256,13 @@ class DreamInterpreter:
                     )
 
                 try:
+
                     return operators[op_type](
                         operand
                     )
 
                 except Exception:
+
                     raise ValueError(
                         "Invalid mathematical operation."
                     )
@@ -190,6 +279,7 @@ class DreamInterpreter:
             )
 
         except SyntaxError:
+
             raise ValueError(
                 "Invalid mathematical expression."
             )
@@ -208,6 +298,63 @@ class DreamInterpreter:
         ) is not None
 
     # ========================================================
+    # RANDOM VALUE
+    # ========================================================
+
+    def random_value(self, low_text, high_text):
+
+        low = self.parse_condition_value(
+            low_text
+        )
+
+        high = self.parse_condition_value(
+            high_text
+        )
+
+        if isinstance(low, bool) or isinstance(
+            high,
+            bool
+        ):
+
+            raise ValueError(
+                "Random limits must be numbers."
+            )
+
+        if not isinstance(
+            low,
+            (int, float)
+        ) or not isinstance(
+            high,
+            (int, float)
+        ):
+
+            raise ValueError(
+                "Random limits must be numbers."
+            )
+
+        if not float(low).is_integer() or not float(
+            high
+        ).is_integer():
+
+            raise ValueError(
+                "Random limits must be whole numbers."
+            )
+
+        low = int(low)
+        high = int(high)
+
+        if low > high:
+
+            raise ValueError(
+                "Random minimum cannot be greater than maximum."
+            )
+
+        return random.randint(
+            low,
+            high
+        )
+
+    # ========================================================
     # REPLACE #VARIABLES IN MATH
     # ========================================================
 
@@ -218,13 +365,18 @@ class DreamInterpreter:
             name = match.group(1)
 
             if name not in self.variables:
+
                 raise ValueError(
                     f"Unknown variable '{name}'."
                 )
 
             value = self.variables[name]
 
-            if not isinstance(value, (int, float)):
+            if not isinstance(
+                value,
+                (int, float)
+            ):
+
                 raise ValueError(
                     f"Variable '{name}' is not a number."
                 )
@@ -251,7 +403,11 @@ class DreamInterpreter:
 
                 value = self.variables[name]
 
-                if not isinstance(value, (int, float)):
+                if not isinstance(
+                    value,
+                    (int, float)
+                ):
+
                     raise ValueError(
                         f"Variable '{name}' is not a number."
                     )
@@ -274,11 +430,37 @@ class DreamInterpreter:
 
         value = value.strip()
 
+        # ----------------------------------------------------
+        # Random
+        #
+        # Example:
+        #
+        # s foodX = rdm [1,30]
+        # ----------------------------------------------------
+
+        random_match = re.fullmatch(
+            r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+            value,
+            re.IGNORECASE
+        )
+
+        if random_match:
+
+            return self.random_value(
+                random_match.group(1),
+                random_match.group(2)
+            )
+
+        # ----------------------------------------------------
+        # Quoted strings
+        # ----------------------------------------------------
+
         if (
             len(value) >= 2
             and value[0] == '"'
             and value[-1] == '"'
         ):
+
             return value[1:-1]
 
         if (
@@ -286,23 +468,34 @@ class DreamInterpreter:
             and value[0] == "'"
             and value[-1] == "'"
         ):
+
             return value[1:-1]
+
+        # ----------------------------------------------------
+        # #variable
+        # ----------------------------------------------------
 
         if value.startswith("#"):
 
             name = value[1:].strip()
 
             if not self.valid_variable_name(name):
+
                 raise ValueError(
                     f"Invalid variable name '{name}'."
                 )
 
             if name not in self.variables:
+
                 raise ValueError(
                     f"Unknown variable '{name}'."
                 )
 
             return self.variables[name]
+
+        # ----------------------------------------------------
+        # Array index
+        # ----------------------------------------------------
 
         array_match = re.fullmatch(
             r"([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(\d+)\s*\]",
@@ -312,42 +505,65 @@ class DreamInterpreter:
         if array_match:
 
             name = array_match.group(1)
-            index = int(array_match.group(2))
+            index = int(
+                array_match.group(2)
+            )
 
             if name not in self.variables:
+
                 raise ValueError(
                     f"Unknown variable '{name}'."
                 )
 
             array = self.variables[name]
 
-            if not isinstance(array, list):
+            if not isinstance(
+                array,
+                list
+            ):
+
                 raise ValueError(
                     f"Variable '{name}' is not an array."
                 )
 
-            if index >= len(array):
+            if index < 0 or index >= len(array):
+
                 raise ValueError(
                     f"Array index {index} out of range."
                 )
 
             return array[index]
 
+        # ----------------------------------------------------
+        # Integer
+        # ----------------------------------------------------
+
         if re.fullmatch(
             r"-?\d+",
             value
         ):
+
             return int(value)
+
+        # ----------------------------------------------------
+        # Float
+        # ----------------------------------------------------
 
         if re.fullmatch(
             r"-?\d+\.\d+",
             value
         ):
+
             return float(value)
+
+        # ----------------------------------------------------
+        # Existing variable
+        # ----------------------------------------------------
 
         if self.valid_variable_name(value):
 
             if value in self.variables:
+
                 return self.variables[value]
 
         return value
@@ -363,6 +579,7 @@ class DreamInterpreter:
             name = match.group(1)
 
             if name in self.variables:
+
                 return str(
                     self.variables[name]
                 )
@@ -394,11 +611,19 @@ class DreamInterpreter:
         if screen is None:
             return False
 
-        if screen.get("closed", True):
+        if screen.get(
+            "closed",
+            True
+        ):
             return False
 
-        window = screen.get("window")
-        canvas = screen.get("canvas")
+        window = screen.get(
+            "window"
+        )
+
+        canvas = screen.get(
+            "canvas"
+        )
 
         try:
 
@@ -414,6 +639,7 @@ class DreamInterpreter:
             return True
 
         except tk.TclError:
+
             return False
 
     # ========================================================
@@ -422,12 +648,16 @@ class DreamInterpreter:
 
     def remove_screen_bindings(self, name):
 
-        screen = self.screens.get(name)
+        screen = self.screens.get(
+            name
+        )
 
         if screen is None:
             return
 
-        canvas = screen.get("canvas")
+        canvas = screen.get(
+            "canvas"
+        )
 
         if canvas is None:
             return
@@ -442,21 +672,33 @@ class DreamInterpreter:
 
             sequence = binding_key[1]
 
-            binding_id = self.key_bindings.pop(
+            binding_ids = self.key_bindings.pop(
                 binding_key,
-                None
+                []
             )
 
-            try:
+            if not isinstance(
+                binding_ids,
+                list
+            ):
 
-                if binding_id:
-                    canvas.unbind(
-                        sequence,
-                        binding_id
-                    )
+                binding_ids = [
+                    binding_ids
+                ]
 
-            except tk.TclError:
-                pass
+            for binding_id in binding_ids:
+
+                try:
+
+                    if binding_id:
+
+                        canvas.unbind(
+                            sequence,
+                            binding_id
+                        )
+
+                except tk.TclError:
+                    pass
 
     # ========================================================
     # CLOSE SCREEN
@@ -469,24 +711,37 @@ class DreamInterpreter:
 
         screen = self.screens[name]
 
-        if screen.get("closed", True):
+        if screen.get(
+            "closed",
+            True
+        ):
+
             return
 
         screen["closed"] = True
 
-        self.remove_screen_bindings(name)
+        self.remove_screen_bindings(
+            name
+        )
 
-        window = screen.get("window")
+        window = screen.get(
+            "window"
+        )
 
         try:
 
-            if window is not None and window.winfo_exists():
+            if (
+                window is not None
+                and window.winfo_exists()
+            ):
+
                 window.destroy()
 
         except tk.TclError:
             pass
 
         if self.current_screen == name:
+
             self.current_screen = None
 
     # ========================================================
@@ -499,10 +754,15 @@ class DreamInterpreter:
 
             old_screen = self.screens[name]
 
-            if self.screen_alive(old_screen):
+            if self.screen_alive(
+                old_screen
+            ):
+
                 return old_screen
 
-            self.close_screen(name)
+            self.close_screen(
+                name
+            )
 
             self.screens.pop(
                 name,
@@ -577,6 +837,7 @@ class DreamInterpreter:
     def screen_output(self, text):
 
         if self.current_screen is None:
+
             self.output(text)
             return
 
@@ -592,7 +853,9 @@ class DreamInterpreter:
             self.current_screen
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
 
             screen["closed"] = True
             self.current_screen = None
@@ -645,6 +908,7 @@ class DreamInterpreter:
     def draw_pixel(self, x, y):
 
         if self.current_screen is None:
+
             raise ValueError(
                 "pxl can only be used inside a scrn."
             )
@@ -652,6 +916,7 @@ class DreamInterpreter:
         if not self.screen_exists(
             self.current_screen
         ):
+
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -660,7 +925,9 @@ class DreamInterpreter:
             self.current_screen
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
 
             screen["closed"] = True
             self.current_screen = None
@@ -674,17 +941,30 @@ class DreamInterpreter:
             x = int(x)
             y = int(y)
 
-        except (TypeError, ValueError):
+        except (
+            TypeError,
+            ValueError
+        ):
 
             raise ValueError(
                 "Pixel coordinates must be numbers."
             )
 
+        if x < 0 or y < 0:
+
+            raise ValueError(
+                "Pixel coordinates cannot be negative."
+            )
+
         canvas = screen["canvas"]
         size = screen["pixel_size"]
 
-        key = (x, y)
+        key = (
+            x,
+            y
+        )
 
+        # Already drawn.
         if key in screen["pixels"]:
             return
 
@@ -700,7 +980,9 @@ class DreamInterpreter:
                 tags=f"pixel_{x}_{y}"
             )
 
-            screen["pixels"].add(key)
+            screen["pixels"].add(
+                key
+            )
 
         except tk.TclError:
 
@@ -723,6 +1005,7 @@ class DreamInterpreter:
     def clear_pixel(self, x, y):
 
         if self.current_screen is None:
+
             raise ValueError(
                 "clrr can only be used inside a scrn."
             )
@@ -730,6 +1013,7 @@ class DreamInterpreter:
         if not self.screen_exists(
             self.current_screen
         ):
+
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -738,7 +1022,9 @@ class DreamInterpreter:
             self.current_screen
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
 
             screen["closed"] = True
             self.current_screen = None
@@ -752,13 +1038,19 @@ class DreamInterpreter:
             x = int(x)
             y = int(y)
 
-        except (TypeError, ValueError):
+        except (
+            TypeError,
+            ValueError
+        ):
 
             raise ValueError(
                 "Pixel coordinates must be numbers."
             )
 
-        key = (x, y)
+        key = (
+            x,
+            y
+        )
 
         screen["pixels"].discard(
             key
@@ -791,6 +1083,7 @@ class DreamInterpreter:
     def clear_all(self):
 
         if self.current_screen is None:
+
             raise ValueError(
                 "clra can only be used inside a scrn."
             )
@@ -798,6 +1091,7 @@ class DreamInterpreter:
         if not self.screen_exists(
             self.current_screen
         ):
+
             raise ValueError(
                 "The DREAM screen is closed."
             )
@@ -806,7 +1100,9 @@ class DreamInterpreter:
             self.current_screen
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
 
             screen["closed"] = True
             self.current_screen = None
@@ -849,6 +1145,10 @@ class DreamInterpreter:
             command
         ) is not None
 
+    # ========================================================
+    # FIND BLOCK END
+    # ========================================================
+
     def find_block_end(
         self,
         lines,
@@ -870,7 +1170,9 @@ class DreamInterpreter:
             if command.startswith("@"):
                 continue
 
-            if self.is_block_start(command):
+            if self.is_block_start(
+                command
+            ):
 
                 depth += 1
 
@@ -879,6 +1181,7 @@ class DreamInterpreter:
                 depth -= 1
 
                 if depth == 0:
+
                     return i
 
         raise DreamError(
@@ -913,7 +1216,9 @@ class DreamInterpreter:
             if command.startswith("@"):
                 continue
 
-            if self.is_block_start(command):
+            if self.is_block_start(
+                command
+            ):
 
                 depth += 1
 
@@ -934,36 +1239,76 @@ class DreamInterpreter:
     # CONDITION VALUE
     # ========================================================
 
-    def parse_condition_value(self, value):
+    def parse_condition_value(
+        self,
+        value
+    ):
 
         value = value.strip()
+
+        # ----------------------------------------------------
+        # Random inside conditions
+        # ----------------------------------------------------
+
+        random_match = re.fullmatch(
+            r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+            value,
+            re.IGNORECASE
+        )
+
+        if random_match:
+
+            return self.random_value(
+                random_match.group(1),
+                random_match.group(2)
+            )
+
+        # ----------------------------------------------------
+        # #variable
+        # ----------------------------------------------------
 
         if value.startswith("#"):
 
             name = value[1:].strip()
 
-            if not self.valid_variable_name(name):
+            if not self.valid_variable_name(
+                name
+            ):
+
                 raise ValueError(
                     f"Invalid variable name '{name}'."
                 )
 
             if name not in self.variables:
+
                 raise ValueError(
                     f"Unknown variable '{name}'."
                 )
 
             return self.variables[name]
 
-        if self.valid_variable_name(value):
+        # ----------------------------------------------------
+        # Bare variable
+        # ----------------------------------------------------
+
+        if self.valid_variable_name(
+            value
+        ):
 
             if value in self.variables:
+
                 return self.variables[value]
+
+        # ----------------------------------------------------
+        # Strings
+        # ----------------------------------------------------
 
         if (
             len(value) >= 2
             and value[0] == '"'
             and value[-1] == '"'
         ):
+
             return value[1:-1]
 
         if (
@@ -971,19 +1316,34 @@ class DreamInterpreter:
             and value[0] == "'"
             and value[-1] == "'"
         ):
+
             return value[1:-1]
+
+        # ----------------------------------------------------
+        # Integers
+        # ----------------------------------------------------
 
         if re.fullmatch(
             r"-?\d+",
             value
         ):
+
             return int(value)
+
+        # ----------------------------------------------------
+        # Floats
+        # ----------------------------------------------------
 
         if re.fullmatch(
             r"-?\d+\.\d+",
             value
         ):
+
             return float(value)
+
+        # ----------------------------------------------------
+        # Math
+        # ----------------------------------------------------
 
         if re.search(
             r"[+\-*/%]",
@@ -1012,7 +1372,10 @@ class DreamInterpreter:
     # CONDITIONS
     # ========================================================
 
-    def evaluate_condition(self, condition):
+    def evaluate_condition(
+        self,
+        condition
+    ):
 
         operators = [
             "==",
@@ -1104,6 +1467,68 @@ class DreamInterpreter:
         return False
 
     # ========================================================
+    # KEYBOARD KEY NORMALIZATION
+    # ========================================================
+
+    def normalize_key(self, key):
+
+        key = key.strip()
+
+        # Support:
+        #
+        # w [w] clk
+        #
+        # as well as:
+        #
+        # w w clk
+
+        if (
+            len(key) >= 2
+            and key[0] == "["
+            and key[-1] == "]"
+        ):
+
+            key = key[1:-1].strip()
+
+        key_aliases = {
+
+            "u-a": "Up",
+            "up": "Up",
+
+            "d-a": "Down",
+            "down": "Down",
+
+            "l-a": "Left",
+            "left": "Left",
+
+            "r-a": "Right",
+            "right": "Right",
+
+            "space": "space",
+
+            "enter": "Return",
+            "return": "Return",
+
+            "esc": "Escape",
+            "escape": "Escape",
+
+            "tab": "Tab",
+
+            "backspace": "BackSpace",
+
+            "shift": "Shift_L",
+
+            "ctrl": "Control_L",
+
+            "alt": "Alt_L"
+        }
+
+        return key_aliases.get(
+            key.lower(),
+            key
+        )
+
+    # ========================================================
     # KEYBOARD
     # ========================================================
 
@@ -1116,33 +1541,31 @@ class DreamInterpreter:
         block_start_line
     ):
 
-        if not self.screen_exists(screen_name):
+        if not self.screen_exists(
+            screen_name
+        ):
+
             return
 
         screen = self.screens[
             screen_name
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
+
             return
 
-        canvas = screen["canvas"]
+        canvas = screen[
+            "canvas"
+        ]
 
-        key_aliases = {
-            "u-a": "Up",
-            "d-a": "Down",
-            "l-a": "Left",
-            "r-a": "Right",
-            "space": "space",
-            "enter": "Return",
-            "esc": "Escape",
-            "tab": "Tab"
-        }
-
-        actual_key = key_aliases.get(
-            key.lower(),
+        actual_key = self.normalize_key(
             key
         )
+
+        event_type = event_type.strip().lower()
 
         if event_type == "clk":
 
@@ -1164,31 +1587,10 @@ class DreamInterpreter:
                 f"Use 'clk' or 'rel'."
             )
 
-        old_binding_key = (
+        binding_key = (
             screen_name,
             sequence
         )
-
-        old_binding = self.key_bindings.get(
-            old_binding_key
-        )
-
-        if old_binding:
-
-            try:
-
-                canvas.unbind(
-                    sequence,
-                    old_binding
-                )
-
-            except tk.TclError:
-                pass
-
-            self.key_bindings.pop(
-                old_binding_key,
-                None
-            )
 
         handler_run_id = self.run_id
 
@@ -1209,13 +1611,17 @@ class DreamInterpreter:
             if not self.screen_exists(
                 screen_name
             ):
+
                 return
 
             screen = self.screens.get(
                 screen_name
             )
 
-            if not self.screen_alive(screen):
+            if not self.screen_alive(
+                screen
+            ):
+
                 return
 
             old_screen = self.current_screen
@@ -1272,23 +1678,22 @@ class DreamInterpreter:
 
             binding_id = canvas.bind(
                 sequence,
-                handler
+                handler,
+                add="+"
             )
 
-            self.key_bindings[
-                old_binding_key
-            ] = binding_id
+            self.key_bindings.setdefault(
+                binding_key,
+                []
+            ).append(
+                binding_id
+            )
 
             canvas.focus_set()
 
         except tk.TclError:
 
             screen["closed"] = True
-
-            self.key_bindings.pop(
-                old_binding_key,
-                None
-            )
 
             raise ValueError(
                 "Could not create keyboard binding."
@@ -1326,14 +1731,18 @@ class DreamInterpreter:
             self.current_screen
         ]
 
-        if not self.screen_alive(screen):
+        if not self.screen_alive(
+            screen
+        ):
 
             screen["closed"] = True
             self.current_screen = None
 
             return ""
 
-        canvas = screen["canvas"]
+        canvas = screen[
+            "canvas"
+        ]
 
         try:
 
@@ -1361,11 +1770,6 @@ class DreamInterpreter:
             return ""
 
         screen["text_y"] += 30
-
-        try:
-            entry.focus_set()
-        except tk.TclError:
-            pass
 
         result = {
             "value": None,
@@ -1411,16 +1815,21 @@ class DreamInterpreter:
 
             try:
 
-                if not self.screen_alive(screen):
+                if not self.screen_alive(
+                    screen
+                ):
+
                     break
 
-                self.root.update()
+                self.update_gui()
 
             except tk.TclError:
 
                 break
 
-            time.sleep(0.01)
+            time.sleep(
+                0.005
+            )
 
         if not result["done"]:
 
@@ -1433,10 +1842,6 @@ class DreamInterpreter:
 
     # ========================================================
     # EXECUTE BLOCK
-    #
-    # IMPORTANT:
-    # screen_context is passed through every nested block.
-    # This prevents pxl/clrr from losing the active scrn.
     # ========================================================
 
     def execute_block(
@@ -1451,16 +1856,7 @@ class DreamInterpreter:
         if end is None:
             end = len(lines)
 
-        # ----------------------------------------------------
-        # Preserve the caller's screen.
-        # ----------------------------------------------------
-
         old_screen = self.current_screen
-
-        # ----------------------------------------------------
-        # If a screen context was explicitly provided,
-        # restore/use it before executing this block.
-        # ----------------------------------------------------
 
         if screen_context is not None:
 
@@ -1468,7 +1864,9 @@ class DreamInterpreter:
                 screen_context
             ):
 
-                self.current_screen = screen_context
+                self.current_screen = (
+                    screen_context
+                )
 
         try:
 
@@ -1580,11 +1978,17 @@ class DreamInterpreter:
                             screen_name
                         ):
 
-                            self.current_screen = (
-                                previous_screen
-                                if previous_screen is not None
-                                else screen_name
-                            )
+                            if previous_screen is not None:
+
+                                self.current_screen = (
+                                    previous_screen
+                                )
+
+                            else:
+
+                                self.current_screen = (
+                                    screen_name
+                                )
 
                         else:
 
@@ -1714,7 +2118,28 @@ class DreamInterpreter:
 
                     try:
 
-                        if (
+                        # ------------------------------------------------
+                        # Direct random value
+                        # ------------------------------------------------
+
+                        random_match = re.fullmatch(
+                            r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+                            value_text,
+                            re.IGNORECASE
+                        )
+
+                        if random_match:
+
+                            value = self.random_value(
+                                random_match.group(1),
+                                random_match.group(2)
+                            )
+
+                        # ------------------------------------------------
+                        # Math expression
+                        # ------------------------------------------------
+
+                        elif (
                             re.search(
                                 r"[+\-*/%]",
                                 value_text
@@ -1800,8 +2225,11 @@ class DreamInterpreter:
                             line_number
                         )
 
-                    if index >= len(
-                        self.variables[name]
+                    if (
+                        index < 0
+                        or index >= len(
+                            self.variables[name]
+                        )
                     ):
 
                         raise DreamError(
@@ -1816,7 +2244,9 @@ class DreamInterpreter:
                             value_text
                         )
 
-                        self.variables[name][index] = value
+                        self.variables[name][
+                            index
+                        ] = value
 
                     except Exception as e:
 
@@ -1856,7 +2286,20 @@ class DreamInterpreter:
 
                     try:
 
-                        if (
+                        random_match = re.fullmatch(
+                            r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
+                            value_text,
+                            re.IGNORECASE
+                        )
+
+                        if random_match:
+
+                            value = self.random_value(
+                                random_match.group(1),
+                                random_match.group(2)
+                            )
+
+                        elif (
                             re.search(
                                 r"[+\-*/%]",
                                 value_text
@@ -1908,50 +2351,18 @@ class DreamInterpreter:
 
                 random_match = re.fullmatch(
                     r"rdm\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]",
-                    line
+                    line,
+                    re.IGNORECASE
                 )
 
                 if random_match:
 
-                    low_text = random_match.group(1)
-                    high_text = random_match.group(2)
-
                     try:
 
-                        low = self.parse_condition_value(
-                            low_text
-                        )
-
-                        high = self.parse_condition_value(
-                            high_text
-                        )
-
-                        if not isinstance(
-                            low,
-                            (int, float)
-                        ) or not isinstance(
-                            high,
-                            (int, float)
-                        ):
-
-                            raise ValueError(
-                                "Random limits must be numbers."
-                            )
-
-                        low = int(low)
-                        high = int(high)
-
-                        if low > high:
-
-                            raise ValueError(
-                                "Random minimum cannot be greater "
-                                "than maximum."
-                            )
-
                         self.variables["random"] = (
-                            random.randint(
-                                low,
-                                high
+                            self.random_value(
+                                random_match.group(1),
+                                random_match.group(2)
                             )
                         )
 
@@ -2008,9 +2419,11 @@ class DreamInterpreter:
                             line_number
                         )
 
-                    # --------------------------------------------
-                    # TRUE BRANCH
-                    # --------------------------------------------
+                    active_screen = (
+                        screen_context
+                        if screen_context is not None
+                        else self.current_screen
+                    )
 
                     if result:
 
@@ -2023,16 +2436,8 @@ class DreamInterpreter:
                                 else block_end
                             ),
                             source_offset=source_offset,
-                            screen_context=(
-                                screen_context
-                                if screen_context is not None
-                                else self.current_screen
-                            )
+                            screen_context=active_screen
                         )
-
-                    # --------------------------------------------
-                    # ELSE BRANCH
-                    # --------------------------------------------
 
                     elif else_index is not None:
 
@@ -2041,11 +2446,7 @@ class DreamInterpreter:
                             else_index + 1,
                             block_end,
                             source_offset=source_offset,
-                            screen_context=(
-                                screen_context
-                                if screen_context is not None
-                                else self.current_screen
-                            )
+                            screen_context=active_screen
                         )
 
                     i = block_end + 1
@@ -2099,10 +2500,6 @@ class DreamInterpreter:
                                     self.running = False
                                     break
 
-                                # --------------------------------
-                                # KEEP SCREEN ACTIVE
-                                # --------------------------------
-
                                 self.current_screen = (
                                     active_screen
                                 )
@@ -2125,6 +2522,7 @@ class DreamInterpreter:
                                     e.line
                                 )
 
+                                self.running = False
                                 break
 
                             except tk.TclError:
@@ -2143,6 +2541,7 @@ class DreamInterpreter:
                                     )
 
                                 self.current_screen = None
+                                self.running = False
                                 break
 
                             except Exception as e:
@@ -2153,6 +2552,7 @@ class DreamInterpreter:
                                     source_offset + i + 1
                                 )
 
+                                self.running = False
                                 break
 
                             finally:
@@ -2172,16 +2572,16 @@ class DreamInterpreter:
 
                                     self.current_screen = None
 
-                            try:
+                            # ------------------------------------
+                            # Keep the GUI responsive.
+                            # ------------------------------------
 
-                                self.root.update()
+                            self.update_gui()
 
-                            except tk.TclError:
-
-                                self.running = False
+                            if not self.running:
                                 break
 
-                            time.sleep(
+                            self.game_sleep(
                                 self.loop_delay
                             )
 
@@ -2315,6 +2715,8 @@ class DreamInterpreter:
 
                                 self.current_screen = None
 
+                        self.update_gui()
+
                     i = block_end + 1
                     continue
 
@@ -2323,18 +2725,18 @@ class DreamInterpreter:
                 # =================================================
 
                 keyboard_match = re.fullmatch(
-                    r"w\s+([^\s]+)\s+([^\s]+)",
+                    r"w\s+(.+?)\s+([^\s]+)",
                     line
                 )
 
                 if keyboard_match:
 
                     key = (
-                        keyboard_match.group(1)
+                        keyboard_match.group(1).strip()
                     )
 
                     event_type = (
-                        keyboard_match.group(2)
+                        keyboard_match.group(2).strip()
                     )
 
                     if self.current_screen is None:
@@ -2607,7 +3009,10 @@ class DreamInterpreter:
                             line_number
                         )
 
-                    if index >= len(value):
+                    if (
+                        index < 0
+                        or index >= len(value)
+                    ):
 
                         raise DreamError(
                             "E04",
@@ -2718,14 +3123,6 @@ class DreamInterpreter:
 
         finally:
 
-            # ----------------------------------------------------
-            # RESTORE THE SCREEN THAT WAS ACTIVE BEFORE THIS
-            # BLOCK WAS EXECUTED.
-            #
-            # If this block has an explicit screen context,
-            # keep that context instead.
-            # ----------------------------------------------------
-
             if screen_context is not None:
 
                 if self.screen_exists(
@@ -2756,7 +3153,9 @@ class DreamInterpreter:
 
         for name in names:
 
-            self.close_screen(name)
+            self.close_screen(
+                name
+            )
 
         self.screens.clear()
 
@@ -2840,7 +3239,7 @@ class DreamIDE:
         self.root = root
 
         self.root.title(
-            "DREAM v0.9.1 IDE"
+            "DREAM v0.9.2 IDE"
         )
 
         self.root.geometry(
@@ -2867,7 +3266,7 @@ class DreamIDE:
 
         title = tk.Label(
             top,
-            text="DREAM v0.9.1",
+            text="DREAM v0.9.2",
             bg="#181818",
             fg="white",
             font=("Consolas", 18, "bold")
@@ -3104,22 +3503,29 @@ class DreamIDE:
                 pass
 
         try:
+
             self.root.destroy()
+
         except tk.TclError:
+
             pass
 
     # ========================================================
-    # DEFAULT DREAM TEST
+    # DEFAULT DREAM 0.9.2 TEST
     # ========================================================
 
     def load_default_code(self):
 
-        code = """@ DREAM v0.9.1 STABILITY TEST
+        code = """@ DREAM v0.9.2 QUALITY OF LIFE TEST
+
+@ --------------------------------------------------------
+@ VARIABLES
+@ --------------------------------------------------------
 
 s hp = 100
 s score = 0
 
-r [DREAM v0.9.1]
+r [DREAM v0.9.2]
 r [HP: {hp}]
 r [Score: {score}]
 
@@ -3130,10 +3536,26 @@ r [After changes:]
 r [HP: {hp}]
 r [Score: {score}]
 
+@ --------------------------------------------------------
+@ MATH
+@ --------------------------------------------------------
+
 m [10+5]
+
+@ --------------------------------------------------------
+@ RANDOM
+@ --------------------------------------------------------
 
 rdm [1,100]
 r #random
+
+s randomNumber = rdm [1,50]
+
+r [Random number: {randomNumber}]
+
+@ --------------------------------------------------------
+@ CONDITIONS
+@ --------------------------------------------------------
 
 if hp > 0
     r [PLAYER ALIVE]
@@ -3145,6 +3567,10 @@ if score >= 10
     r [SCORE CONDITION WORKS]
 end
 
+@ --------------------------------------------------------
+@ ARRAYS
+@ --------------------------------------------------------
+
 a inventory = [apple,banana,orange]
 
 r #inventory
@@ -3155,48 +3581,96 @@ inventory[0] = sword
 r #inventory
 r #inventory[0]
 
+@ --------------------------------------------------------
+@ GRAPHICS
+@ --------------------------------------------------------
+
 scrn game
 
-    r [DREAM SCREEN]
-    r [PRESS ARROW KEYS]
+    r [DREAM v0.9.2 SCREEN]
+    r [PRESS W A S D OR ARROW KEYS]
 
     pxl[5,5]
     pxl[6,5]
     pxl[7,5]
 
-    w u-a clk
+    @ --------------------------------------------
+    @ W / UP
+    @ --------------------------------------------
+
+    w [w] clk
+
+        r [W WORKS]
+
+    end
+
+    w [u-a] clk
 
         r [UP WORKS]
 
     end
 
-    w d-a clk
+    @ --------------------------------------------
+    @ S / DOWN
+    @ --------------------------------------------
+
+    w [s] clk
+
+        r [S WORKS]
+
+    end
+
+    w [d-a] clk
 
         r [DOWN WORKS]
 
     end
 
-    w l-a clk
+    @ --------------------------------------------
+    @ A / LEFT
+    @ --------------------------------------------
+
+    w [a] clk
+
+        r [A WORKS]
+
+    end
+
+    w [l-a] clk
 
         r [LEFT WORKS]
 
     end
 
-    w r-a clk
+    @ --------------------------------------------
+    @ D / RIGHT
+    @ --------------------------------------------
+
+    w [d] clk
+
+        r [D WORKS]
+
+    end
+
+    w [r-a] clk
 
         r [RIGHT WORKS]
 
     end
 
-    w space clk
+    @ --------------------------------------------
+    @ SPACE
+    @ --------------------------------------------
+
+    w [space] clk
 
         r [SPACE WORKS]
 
     end
 
-    @ --------------------------------------------------------
-    @ NESTED SCREEN TEST
-    @ --------------------------------------------------------
+    @ --------------------------------------------
+    @ PIXEL TEST
+    @ --------------------------------------------
 
     s testx = 10
     s testy = 10
