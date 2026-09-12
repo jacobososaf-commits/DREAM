@@ -1,11 +1,12 @@
+```text
 @ ============================================================
-@ DREAM GAME v0.9.2
+@ DREAM GAME v1.0
 @ ============================================================
 
 scrn game
 
     @ --------------------------------------------------------
-    @ PLAYER POSITION
+    @ PLAYER
     @ --------------------------------------------------------
 
     s x = 20
@@ -15,7 +16,7 @@ scrn game
     s dy = 0
 
     @ --------------------------------------------------------
-    @ FOOD POSITION
+    @ FOOD
     @ --------------------------------------------------------
 
     s foodx = rdm [1,55]
@@ -65,7 +66,7 @@ scrn game
 
     rpt[frvr]
 
-        @ Remove old player position
+        @ Remove old player pixel
         clrr[x,y]
 
         @ Move player
@@ -86,7 +87,7 @@ scrn game
                 @ Remove eaten food
                 clrr[foodx,foody]
 
-                @ Generate new food position
+                @ Create new food
                 foodx = rdm [1,55]
                 foody = rdm [1,40]
 
@@ -100,3 +101,5 @@ scrn game
     end
 
 end
+```
+

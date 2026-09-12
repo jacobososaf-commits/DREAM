@@ -1,5 +1,5 @@
 @ ============================================================
-@ DREAM INPUT EXAMPLE v0.9.2
+@ DREAM INPUT EXAMPLE v1.0
 @ ============================================================
 
 r [What is your name?]
@@ -11,7 +11,11 @@ r [Hello, {usrinp}!]
 r [You are {age} years old.]
 
 if age >= 13
+
     r [You are old enough to use DREAM!]
+
 else
+
     r [Welcome, young programmer!]
+
 end

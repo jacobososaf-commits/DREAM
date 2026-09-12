@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>DREAM — Programming Language</title>
+    <title>DREAM 1.0 — Programming Language</title>
 
 <style>
     * {
@@ -673,14 +673,14 @@
     <div class="version-box">
 
         <div class="version">
-            v0.9.2
+            v1.0
         </div>
 
         <p>
-            DREAM 0.9.2 is a quality-of-life update.
-            It improves keyboard controls, random value assignments,
-            infinite loops, and the overall experience while keeping
-            the existing DREAM syntax intact.
+            DREAM 1.0 is the first major release of DREAM.
+            It focuses on stability, usability, and bringing the
+            language's core features together into a complete
+            programming experience.
         </p>
 
     </div>
@@ -731,13 +731,13 @@
             <div class="code-wrapper">
 
                 <pre><code id="game-code">@ ============================================================
-@ DREAM GAME v0.9.2
+@ DREAM GAME v1.0
 @ ============================================================
 
 scrn game
 
     @ --------------------------------------------------------
-    @ PLAYER POSITION
+    @ PLAYER
     @ --------------------------------------------------------
 
     s x = 20
@@ -747,7 +747,7 @@ scrn game
     s dy = 0
 
     @ --------------------------------------------------------
-    @ FOOD POSITION
+    @ FOOD
     @ --------------------------------------------------------
 
     s foodx = rdm [1,55]
@@ -797,7 +797,7 @@ scrn game
 
     rpt[frvr]
 
-        @ Remove old player position
+        @ Remove old player pixel
         clrr[x,y]
 
         @ Move player
@@ -818,7 +818,7 @@ scrn game
                 @ Remove eaten food
                 clrr[foodx,foody]
 
-                @ Generate new food position
+                @ Create new food
                 foodx = rdm [1,55]
                 foody = rdm [1,40]
 
@@ -862,7 +862,7 @@ end</code></pre>
             <div class="code-wrapper">
 
                 <pre><code id="input-code">@ ============================================================
-@ DREAM INPUT EXAMPLE v0.9.2
+@ DREAM INPUT EXAMPLE v1.0
 @ ============================================================
 
 r [What is your name?]
@@ -874,9 +874,13 @@ r [Hello, {usrinp}!]
 r [You are {age} years old.]
 
 if age >= 13
+
     r [You are old enough to use DREAM!]
+
 else
+
     r [Welcome, young programmer!]
+
 end</code></pre>
 
             </div>
@@ -908,14 +912,14 @@ end</code></pre>
             <div class="code-wrapper">
 
                 <pre><code id="hello-code">@ ============================================================
-@ DREAM HELLO EXAMPLE v0.9.2
+@ DREAM HELLO EXAMPLE v1.0
 @ ============================================================
 
 s name = OpenQ
 
 r [Hello from DREAM!]
 r [Welcome to {name}]
-r [This is DREAM v0.9.2]</code></pre>
+r [This is DREAM v1.0]</code></pre>
 
             </div>
 
@@ -946,7 +950,7 @@ r [This is DREAM v0.9.2]</code></pre>
             <div class="code-wrapper">
 
                 <pre><code id="pixel-code">@ ============================================================
-@ DREAM PIXEL EXAMPLE v0.9.2
+@ DREAM PIXEL EXAMPLE v1.0
 @ ============================================================
 
 s x = 10
@@ -991,7 +995,7 @@ end</code></pre>
         <h2>Download DREAM</h2>
 
         <p>
-            Get the actual DREAM interpreter and start experimenting.
+            Get the actual DREAM 1.0 interpreter and start experimenting.
         </p>
 
     </div>
@@ -1068,6 +1072,19 @@ end</code></pre>
 
         <div class="change">
 
+            <strong>DREAM v1.0</strong>
+
+            <p>
+                First major release of DREAM.
+                Improved stability, usability, keyboard controls,
+                random values, loops, conditions, arrays, pixels,
+                and the overall interpreter experience.
+            </p>
+
+        </div>
+
+        <div class="change">
+
             <strong>DREAM v0.9.2</strong>
 
             <p>
@@ -1118,7 +1135,7 @@ end</code></pre>
     </p>
 
     <p>
-        DREAM v0.9.2
+        DREAM v1.0
     </p>
 
 </footer>
